@@ -2,13 +2,37 @@
 
 A service that helps the user keep track of electricity prices and thunderstorms.
 
+Anyone in Sweden may use and subscribe, but the expected audience is a handful of people. This is a tech demo, not a commercial product; do not design for scale beyond that.
+
 ## What the project does
 
 - Identifies unusually high and low electricity prices and sends notifications ahead of such periods.
-- Warns about expected thunderstorms.
-- Exposes an API that can, among other things, answer which timespan is cheapest in the near future.
+- Warns about expected thunderstorms (the purpose is to avoid using electrical equipment or charging an EV during them).
 - Enables Web Push notifications for subscribing users.
-- Provides a frontend that shows the status for the near future: whether the current electricity price is cheap or expensive, and whether it is about to change significantly. Color is used to convey the status (e.g. a red background when expensive). The frontend must never contain secrets and gets its data from the API.
+
+### API
+
+JSON, read-only for price/thunder data. Parameters are validated and bounded.
+
+- **Price status:** is the current price (and the next hour) relatively cheap, normal or expensive. Parameter: price area (`SE1`–`SE4`).
+- **Cheapest interval:** the cheapest interval of N hours within the next P hours. Parameters: price area, interval length (default 2 h), period length (default 8 h).
+- **Thunder:** whether thunder is expected, and roughly when. Parameters: location, and number of hours ahead (default 8, with a reasonable maximum). This is a forecast, not observed lightning strikes.
+
+### Price classification
+
+"Cheap", "normal" and "expensive" are relative to the average price over the recent past. The definition lives in one place in the code.
+
+### Frontend
+
+A Svelte SPA that gives a quick overview **without scrolling, including on a phone**. It shows:
+
+- Page background color indicating whether the current price (and the next hour) is relatively cheap, normal or expensive (e.g. red when expensive). Color is always paired with text or a symbol.
+- The start time of the cheapest 2-hour interval within the next 8 hours.
+- Whether thunder is expected within the next 8 hours and, if so, approximately when.
+- Location and zone: if no position is stored, the frontend shows a button that requests the browser position (never on page load). The position is stored rounded in `localStorage`, and the price zone is guessed from it (bundled, simplified zone polygons; no confirmation required). The user can afterwards change the zone manually and reload the GPS position; reloading re-guesses the zone. Both choices are stored in `localStorage`. The position is sent as parameters to the thunder endpoint.
+- A form that can be opened to enable or disable push notifications.
+
+The frontend must never contain secrets and gets all data from the API.
 
 ## Tech stack
 
@@ -21,10 +45,11 @@ Decided:
 - **Cloudflare Cron Triggers** – scheduled checks of prices and weather.
 - **Web Push + VAPID** – notifications without a separate paid push provider. Must run on Workers (Web Crypto, no Node-only libraries).
 - **Svelte + Vite** – frontend, built as a static SPA (not SvelteKit). The user wants to learn Svelte, so keep the code idiomatic and simple.
+- **Zod** – validation of external data and request parameters (with `@hono/zod-validator`).
 - **Vitest** – automated tests.
 - **Wrangler** – local development and deployment.
 
-Everything (API, frontend, storage, scheduling) runs on Cloudflare. Frontend hosting: assume Workers static assets for now (served by the same Worker as the API). This is a provisional choice, not final; verify free-tier limits and ask before building anything that depends on it, and before switching to Pages.
+Everything (API, frontend, storage, scheduling) runs on Cloudflare. Frontend hosting: **Workers static assets**, served by the same Worker as the API (one deploy, one origin, no CORS). Only the Worker runs first for `/api/*`; everything else is served as free static assets. Do not switch to Pages without asking.
 
 Goal: keep running costs at 0 SEK within Cloudflare's free tiers, as far as possible. Solutions that require paid services are not allowed.
 
