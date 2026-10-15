@@ -81,4 +81,5 @@ Anything not listed here is **not yet decided**. Do not assume any particular ch
 - Avoid unnecessary abstractions and refactoring.
 - Never expose secrets in code or frontend.
 - Run relevant tests and type checks after changes.
+- The repository is public on GitHub under the MIT license. Keep `README.md` up to date in the same change as the code it describes. It explains the purpose, the architecture, third-party data sources and dependencies (with licenses and attribution), local setup, configuration and deployment. Never put secrets, personal contact details beyond what the user approved, or private tooling in it.
 - The project scope is not final. Do not anticipate future decisions, and ask before making major architectural decisions not covered by this document.

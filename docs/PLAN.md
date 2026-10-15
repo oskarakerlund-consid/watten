@@ -4,7 +4,7 @@ Status: **draft v3, awaiting review. Nothing is implemented yet.**
 
 This is a living document. `CLAUDE.md` holds the fixed decisions, requirements and rules; this file holds the order of work. Tick off steps as they are finished and update the plan when decisions change.
 
-Each step is small, independently verifiable and (unless noted) leaves the repo in a working state. Work happens on a feature branch with conventional commits; nothing is committed to `main` without asking, and nothing is deployed by the agent.
+Each step is small, independently verifiable and (unless noted) leaves the repo in a working state. **Every step also updates `README.md`** for what it adds (the repo is public); a step is not done until the README matches the code. Work happens on a feature branch with conventional commits; nothing is committed to `main` without asking, and nothing is deployed by the agent.
 
 ## Verified platform facts
 
@@ -33,6 +33,7 @@ Resolved:
 - **Polygon simplification (D12):** a small dependency-free script, `scripts/simplify-zones.mjs` (Douglas–Peucker), run once by hand; the procedure is documented in `README.md`. Without a position (denied, unavailable), the user picks the zone and a fixed representative point per zone is used for thunder.
 - **Thunder horizon (D9):** default 8 hours, maximum 24, additionally capped by the real forecast horizon found in step 7.
 - **Web Push (D4):** spike one Workers-compatible library (`web-push-neo`, `web-push-browser` or `PushForge`; none reviewed yet) in step 11; fall back to hand-rolled Web Crypto.
+- **License (D13):** MIT, in `LICENSE` from step 1.
 - **Frontend hosting (D6):** Workers static assets (locked): the built Svelte files are served by the same Worker as the API, one deploy and one origin.
 
 Open (needed before the step that depends on them; proposals are not decisions):
@@ -98,15 +99,32 @@ All `GET` endpoints return JSON, read from D1 or a short-lived cache, and valida
 | `GET /api/thunder` | `lat`, `lon` (GPS position; Sweden only; rounded to 2 decimals in the browser and again server-side), `hours` (8; max 24, capped by forecast horizon) | Whether thunder is expected within `hours`, and the approximate time of the first/strongest occurrence. A forecast, not observed lightning strikes. |
 | `POST /api/push/subscribe`, `DELETE /api/push/subscribe` | Push subscription + zone + rounded location | Enable / disable notifications. |
 
+## README
+
+`README.md` is created in step 1 and grown by every step. Planned sections:
+
+1. **Watten** – one-paragraph purpose, screenshot (from step 9), status (tech demo, not commercial).
+2. **How it works** – the overview screen, the API endpoints with parameters, push notifications.
+3. **Architecture** – a small diagram and text: Worker (Hono API + cron) → D1; Elpriset just nu and MET Norway as upstreams; Svelte SPA served as static assets; Web Push. Plus the `src/` layering (routes / domain / integrations / db).
+4. **Third-party data and dependencies** – data sources with terms and attribution (Elpriset just nu, MET Norway CC BY 4.0, `entsoe-py` zone geometry under MIT and how it was simplified); runtime and dev dependencies with a one-line reason each.
+5. **Free-tier limits** – which Cloudflare limits matter and how the design stays inside them.
+6. **Getting started** – prerequisites, install, `.dev.vars`, local D1 migrations, `npm run dev`, tests and typecheck.
+7. **Configuration** – the Wrangler vars (thresholds, window) and secrets (VAPID), how to change them.
+8. **Deployment** – creating D1, setting secrets, remote migrations, `wrangler deploy`.
+9. **Privacy** – what is stored (push subscription, rounded position) and when it is deleted; position is otherwise only kept in the browser.
+10. **License** – MIT (D13).
+
+Public-repo consequences, applied throughout: `.dev.vars` and other secret files are git-ignored and only `.dev.vars.example` is committed; the D1 `database_id` and the MET `User-Agent` contact end up public (neither is a secret, but choose a contact you are happy to publish); no personal or private tooling is referenced.
+
 ## Steps
 
-Each step lists: goal, files touched, consequences, and how to verify. File paths are proposals.
+Each step lists: goal, files touched, consequences, and how to verify. File paths are proposals. `README.md` is touched in every step and therefore not repeated in each list.
 
 ### Step 1 – Project scaffold
 
 **Goal:** an empty but working TypeScript Worker with Hono, tests and typechecking.
 
-**Files:** `package.json`, `package-lock.json`, `tsconfig.json` (strict), `wrangler.jsonc`, `vitest.config.ts`, `.gitignore` (`node_modules`, `.wrangler`, `.dev.vars`, `web/dist`), `.dev.vars.example`, `src/index.ts` (Hono app, `GET /api/health`), `src/index.test.ts`.
+**Files:** `package.json`, `package-lock.json`, `tsconfig.json` (strict), `wrangler.jsonc`, `vitest.config.ts`, `.gitignore` (`node_modules`, `.wrangler`, `.dev.vars`, `web/dist`), `.dev.vars.example`, `src/index.ts` (Hono app, `GET /api/health`), `src/index.test.ts`, `README.md` (skeleton with all planned sections, filled where already true), `LICENSE` (D13).
 
 **Consequences:** Adds the Step 1 dependencies. Establishes the `src/` layering used throughout: `src/routes/` (Hono), `src/domain/` (pure logic), `src/integrations/` (network), `src/db/` (D1). Sets scripts: `dev`, `test`, `typecheck`, `deploy`.
 
