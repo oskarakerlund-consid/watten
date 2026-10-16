@@ -37,6 +37,16 @@ export function stockholmDate(instant: number): LocalDate {
   return { year: p.year!, month: p.month!, day: p.day! };
 }
 
+/** ISO 8601 timestamp in Swedish local time with its UTC offset, e.g. `2026-10-16T14:00:00+02:00`. */
+export function toStockholmIso(instant: number): string {
+  const p = localParts(instant);
+  const offsetMinutes = stockholmOffset(instant) / MINUTE_MS;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const offset = `${sign}${pad(Math.floor(Math.abs(offsetMinutes) / 60))}:${pad(Math.abs(offsetMinutes) % 60)}`;
+  return `${p.year}-${pad(p.month!)}-${pad(p.day!)}T${pad(p.hour!)}:${pad(p.minute!)}:${pad(p.second!)}${offset}`;
+}
+
 /** Adds `days` calendar days to a local date. */
 export function addDays(date: LocalDate, days: number): LocalDate {
   const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));

@@ -23,6 +23,18 @@ export async function loadIntervals(db: D1Database, from: number, to: number): P
   return results.map((row) => ({ zone: row.zone, start: row.start_utc, end: row.end_utc, sekPerKwh: row.sek_per_kwh }));
 }
 
+/** Stored intervals for one zone that overlap `[from, to)`, ordered by start. */
+export async function loadZoneIntervals(db: D1Database, zone: Zone, from: number, to: number): Promise<PriceInterval[]> {
+  const { results } = await db
+    .prepare(
+      "SELECT start_utc, end_utc, sek_per_kwh FROM prices WHERE zone = ?1 AND start_utc < ?3 AND end_utc > ?2 ORDER BY start_utc",
+    )
+    .bind(zone, from, to)
+    .all<Omit<PriceRow, "zone">>();
+
+  return results.map((row) => ({ start: row.start_utc, end: row.end_utc, sekPerKwh: row.sek_per_kwh }));
+}
+
 // One statement per zone and day: the rows are passed as a single JSON parameter, which keeps us far below the
 // 100 bound parameters per query and the per-invocation query limit.
 const UPSERT_SQL = `

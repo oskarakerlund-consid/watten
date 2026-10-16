@@ -1,10 +1,8 @@
-import { Hono } from "hono";
+import { createApp } from "./app";
 import { parseConfig } from "./config";
 import { historyDaysFor, ingestPrices } from "./jobs/ingestPrices";
 
-const app = new Hono<{ Bindings: Env }>();
-
-app.get("/api/health", (c) => c.json({ status: "ok" }));
+const app = createApp();
 
 export default {
   fetch: app.fetch,
