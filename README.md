@@ -24,7 +24,9 @@ Currently implemented endpoints:
 Everything runs on Cloudflare's free tier:
 
 - A single **Cloudflare Worker** written in TypeScript, with [Hono](https://hono.dev/) for API routing.
-- _Planned:_ Cloudflare D1 for storage, Cron Triggers for scheduled price and weather checks, a Svelte SPA served as Workers static assets from the same Worker, and Web Push with VAPID.
+- **Cloudflare D1** stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
+- A **Cron Trigger** (`*/15 11-14 * * *`, UTC) runs the price ingestion every 15 minutes around 13:00 Swedish time, when tomorrow's prices are published. Each run fetches only days that are missing or incomplete, so once tomorrow's prices are stored, the remaining runs that day do nothing.
+- _Planned:_ weather checks, a Svelte SPA served as Workers static assets from the same Worker, and Web Push with VAPID.
 
 Code layout under `src/`:
 
@@ -34,7 +36,9 @@ Code layout under `src/`:
 | `src/routes/` | _Planned:_ HTTP routes (Hono). |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search. |
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
-| `src/db/` | _Planned:_ D1 access. |
+| `src/db/` | D1 access. |
+| `src/jobs/` | Scheduled jobs (price ingestion). |
+| `migrations/` | D1 schema migrations. |
 
 ## Third-party data and dependencies
 
@@ -56,7 +60,12 @@ Code layout under `src/`:
 
 ## Free-tier limits
 
-_To be documented as features that depend on them are added._
+| Limit (Workers Free) | How Watten stays inside it |
+| --- | --- |
+| 50 subrequests (fetches and D1 queries) per invocation | Price ingestion uses at most 34: one read, up to 16 fetches, up to 16 writes (one SQL statement per zone and day, with the rows passed as one JSON parameter) and one delete. |
+| D1: 100,000 rows written per day | About 400 price rows per day (4 zones × 96 quarter-hours), plus a one-off backfill of about 1,500 rows. |
+| D1: 5,000,000 rows read per day | Each ingestion run reads at most ~1,600 rows, 16 runs per day. |
+| 5 Cron Triggers per account | One trigger so far. |
 
 ## Getting started
 
@@ -64,11 +73,14 @@ Prerequisites: Node.js 24 and npm.
 
 ```sh
 npm install
+npm run db:migrate:local  # creates the local D1 database schema
 npm run dev        # starts the Worker locally on http://localhost:8787
 npm test           # runs the tests in the Workers runtime
 npm run test:live  # manual checks against the real upstream APIs (needs network)
 npm run typecheck  # generates Worker types and runs the TypeScript compiler
 ```
+
+To run the price ingestion locally, start `npm run dev` and trigger the cron job with `curl "localhost:8787/cdn-cgi/local/scheduled"`. Inspect the result with `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"`.
 
 Local secrets go in `.dev.vars` (git-ignored); see `.dev.vars.example`. None are needed yet.
 

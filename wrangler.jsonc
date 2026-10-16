@@ -2,5 +2,17 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "watten",
   "main": "src/index.ts",
-  "compatibility_date": "2026-10-01"
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "watten",
+      "database_id": "054798df-d69c-4fc2-813f-6dd7340b824d",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    // UTC. Covers 13:00 Swedish time (when tomorrow's prices are published) in both winter and summer time.
+    "crons": ["*/15 11-14 * * *"]
+  }
 }
