@@ -61,7 +61,7 @@ Nothing is installed until you approve the list for the step that needs it.
 - Step 1 (installed): `typescript`, `wrangler`, `hono`, `vitest`, `@cloudflare/vitest-plugin` (successor of the deprecated `@cloudflare/vitest-pool-workers`)
 - Step 3 (installed): `zod`
 - Step 6 (installed): `@hono/zod-validator`
-- Step 9b: `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`
+- Step 9b (installed): `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`; TypeScript downgraded from 7 to 6 because `svelte-check` crashes with 7 (your decision)
 - Step 11: Web Push library (D4), if not hand-rolled
 
 ## Cloudflare and third-party setup (user actions)
@@ -228,13 +228,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** `node scripts/guess-zone.mjs 59.33 18.07` → `SE3`; try your own position or towns near zone borders.
 
-### Step 9b – Svelte frontend (overview screen)
+### Step 9b – Svelte frontend (overview screen) ✅
 
 **Goal:** one SPA screen that answers "is it cheap, when is it cheapest, will it thunder?" at a glance.
 
-**Files:** `web/package.json` (or root, per layout decision), `web/vite.config.ts`, `web/index.html`, `web/src/main.ts`, `web/src/App.svelte`, `web/src/lib/api.ts` (typed fetch wrapper), `web/src/lib/settings.ts` (zone and optional location in `localStorage`, with try/catch), `web/src/lib/geolocation.ts` (browser geolocation wrapper, rounding to 2 decimals), `web/src/lib/zones/zones.json` (simplified SE1–SE4 polygons), `web/src/lib/zones/LICENSE-entsoe-py` (MIT notice), `web/src/lib/zones/guessZone.ts` (+ tests; point-in-polygon), `scripts/simplify-zones.mjs` (+ tests; reads the downloaded GeoJSON files given as arguments, writes `zones.json`), `README.md` (section on how the zone data was produced: source repo and commit, download, simplification command and tolerance, how to redo it if the zones change), `web/src/app.css`, `wrangler.jsonc` (`assets: { directory: "web/dist", not_found_handling: "single-page-application", run_worker_first: ["/api/*"] }`), Vitest tests for non-trivial frontend logic.
+**Files:** `web/index.html`, `web/vite.config.ts`, `web/tsconfig.json`, `web/src/main.ts`, `web/src/app.css`, `web/src/App.svelte`, `web/src/components/` (`PriceHeadline`, `Card`, `CheapestCard`, `ThunderCard`, `ZonePicker`, `SettingsDialog`), `web/src/lib/` (`api.ts`, `settings.ts` + tests, `format.ts` + tests, `geolocation.ts`, `zones.ts`), `wrangler.jsonc` (`assets`), `package.json` (`dev`, `dev:web`, `build:web`, `deploy`, `typecheck` with `svelte-check`), `tsconfig.json`.
 
-**Consequences:** Adds the step 9 dependencies and a second build (`vite build` before `wrangler deploy`).
+**Consequences (implemented):** UI in Swedish. Colors: green (cheap), sand (normal), red (expensive), grey (unknown), each with a text label and symbol. No push form yet (step 11). The frontend imports the zone list from `src/domain/types.ts`, so it exists in one place. The API response types in `web/src/lib/api.ts` are written by hand. `npm run dev` builds the frontend first because Wrangler serves `web/dist`. Polling every 5 minutes and on tab focus. Footer credits Elpriset just nu and MET Norway (CC BY 4.0). JS bundle 61 KB (24 KB gzipped), of which the zone data is ~14 KB.
 
 - Layout: everything fits in the viewport without scrolling, including small phones (design around 360×640; use `100dvh`). Settings and the push form open as an overlay/dialog, so the main view never scrolls.
 - Content: background color for cheap / normal / expensive plus a text label and symbol; the start–end of the cheapest 2-hour interval within the next 8 hours (in Swedish time, "now" if it is now); thunder yes/no for the next 8 hours and, if yes, the approximate time.

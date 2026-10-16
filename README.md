@@ -2,16 +2,19 @@
 
 Watten is a small serverless service that helps you decide when to use electricity in Sweden. It shows whether the current electricity price is relatively cheap or expensive, when the cheapest upcoming hours are, and whether thunder is expected, so you can avoid using sensitive equipment or charging an EV during a thunderstorm. Users can subscribe to Web Push notifications.
 
-> **Status:** early development, tech demo, not a commercial product. Only the project scaffold exists so far; the features below are planned. See [`docs/PLAN.md`](docs/PLAN.md) for the implementation plan.
+> **Status:** early development, tech demo, not a commercial product. The overview page and the API work; push notifications are planned. See [`docs/PLAN.md`](docs/PLAN.md) for the implementation plan.
 
 ## How it works
 
-_Planned._ A single-screen web app backed by a JSON API:
+A single-screen web app (in Swedish) backed by a JSON API. Everything fits on one screen without scrolling, also on a phone:
 
-- **Price status** per price area (`SE1`–`SE4`): cheap, normal or expensive, relative to the recent average.
-- **Cheapest interval:** the cheapest N-hour interval within the next P hours.
-- **Thunder forecast** for a position, a number of hours ahead.
-- **Push notifications** ahead of unusually high or low prices and expected thunder.
+- The **background color** shows whether the price for the coming hour is cheap (green), normal (sand) or expensive (red) compared with the recent average. The level is also written out with a symbol, so color is never the only cue.
+- The **cheapest 2-hour interval** within the next 8 hours.
+- Whether **thunder** is expected within the next 8 hours, and roughly when.
+- **Location and zone:** on the first visit you either press *Använd min plats* (the browser asks for your position; it is never requested automatically) or pick a price zone. Your zone is guessed from the position. In the settings you can change the zone and update the position. Both are stored only in your browser (`localStorage`); the position is rounded to about 1 km. Without a position, the thunder forecast is for the zone's largest city.
+- _Planned:_ **push notifications** ahead of unusually high or low prices and expected thunder.
+
+The page refreshes its data every 5 minutes and when the tab becomes visible again.
 
 Currently implemented endpoints. All return JSON; invalid parameters give `400` with an `error` message, and missing price data gives `503`. Successful responses may be cached by the browser for 60 seconds.
 
@@ -46,7 +49,8 @@ Everything runs on Cloudflare's free tier:
 - A single **Cloudflare Worker** written in TypeScript, with [Hono](https://hono.dev/) for API routing.
 - **Cloudflare D1** caches thunder forecasts per rounded position and stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
 - A **Cron Trigger** (`*/15 11-14 * * *`, UTC) runs the price ingestion every 15 minutes around 13:00 Swedish time, when tomorrow's prices are published. Each run fetches only days that are missing or incomplete, so once tomorrow's prices are stored, the remaining runs that day do nothing.
-- _Planned:_ weather checks, a Svelte SPA served as Workers static assets from the same Worker, and Web Push with VAPID.
+- A **Svelte 5 SPA** (`web/`, built with Vite) is served as Workers static assets by the same Worker: one deploy, one origin, no CORS. Only `/api/*` runs the Worker; all other requests are free static-asset requests, and unknown paths return the app.
+- _Planned:_ scheduled weather checks and Web Push with VAPID.
 
 Code layout under `src/`:
 
@@ -57,6 +61,7 @@ Code layout under `src/`:
 | `src/routes/` | HTTP routes (Hono) with query validation. Routes only read from D1 and never call upstream APIs. |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification. |
 | `src/config.ts` | Parsing and validation of the Worker vars. |
+| `web/` | The Svelte frontend: `src/App.svelte`, `src/components/`, and `src/lib/` (API client, settings, formatting, geolocation). |
 | `web/src/lib/zones/` | Price-zone polygons and the zone lookup used by the frontend. |
 | `scripts/` | Developer scripts: producing the zone data and looking up a zone for a position. |
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
@@ -92,7 +97,11 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | [`zod`](https://github.com/colinhacks/zod) | runtime | Validation of external data and request parameters | MIT |
 | [`@hono/zod-validator`](https://github.com/honojs/middleware) | runtime | Zod validation of request parameters in Hono routes | MIT |
 | [`wrangler`](https://github.com/cloudflare/workers-sdk) | dev | Local development, type generation and deployment | MIT OR Apache-2.0 |
-| [`typescript`](https://github.com/microsoft/TypeScript) | dev | Type checking | Apache-2.0 |
+| [`typescript`](https://github.com/microsoft/TypeScript) | dev | Type checking (version 6, because `svelte-check` does not support 7 yet) | Apache-2.0 |
+| [`svelte`](https://github.com/sveltejs/svelte) | dev | Frontend framework (compiled into the static bundle) | MIT |
+| [`vite`](https://github.com/vitejs/vite) | dev | Frontend build and dev server | MIT |
+| [`@sveltejs/vite-plugin-svelte`](https://github.com/sveltejs/vite-plugin-svelte) | dev | Svelte support in Vite | MIT |
+| [`svelte-check`](https://github.com/sveltejs/language-tools) | dev | Type checking of `.svelte` files | MIT |
 | [`vitest`](https://github.com/vitest-dev/vitest) | dev | Test runner | MIT |
 | [`@cloudflare/vitest-plugin`](https://github.com/cloudflare/workers-sdk) | dev | Runs tests inside the Workers runtime | MIT |
 
@@ -104,6 +113,7 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | D1: 100,000 rows written per day | About 400 price rows per day (4 zones × 96 quarter-hours), plus a one-off backfill of about 1,500 rows. |
 | D1: 5,000,000 rows read per day | Each ingestion run reads at most ~1,600 rows, 16 runs per day. |
 | 5 Cron Triggers per account | One trigger so far. |
+| 100,000 Worker requests per day | Static assets (the app itself) are free and unlimited; only `/api/*` counts. The page makes three API calls per refresh, every 5 minutes while open, and responses may be cached by the browser for 60 seconds. |
 
 ## Getting started
 
@@ -112,10 +122,11 @@ Prerequisites: Node.js 24 and npm.
 ```sh
 npm install
 npm run db:migrate:local  # creates the local D1 database schema
-npm run dev        # starts the Worker locally on http://localhost:8787
+npm run dev        # builds the frontend and serves app + API on http://localhost:8787
+npm run dev:web    # optional, in a second terminal: frontend with hot reload on http://localhost:5173 (API calls go to :8787)
 npm test           # runs the tests in the Workers runtime
 npm run test:live  # manual checks against the real upstream APIs (needs network)
-npm run typecheck  # generates Worker types and runs the TypeScript compiler
+npm run typecheck  # generates Worker types, type-checks the Worker and the Svelte app
 ```
 
 To run the price ingestion locally, start `npm run dev` and trigger the cron job with `curl "localhost:8787/cdn-cgi/local/scheduled"`. Inspect the result with `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"`.
@@ -144,7 +155,7 @@ _To be documented._
 
 ## Privacy
 
-No personal data is stored yet. Positions sent to `/api/thunder` are rounded to two decimals (about 1 km) and only the forecast for that rounded position is cached; the cache does not record who asked.
+No personal data is stored on the server yet. The chosen zone and the rounded position are stored only in the browser's `localStorage`. Positions sent to `/api/thunder` are rounded to two decimals (about 1 km) and only the forecast for that rounded position is cached; the cache does not record who asked.
 
 ## License
 
