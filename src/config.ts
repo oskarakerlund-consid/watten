@@ -7,6 +7,8 @@ const configSchema = z.object({
   PRICE_DIFF_PERCENT: z.coerce.number().min(0).default(20),
   /** Length of the trailing window that "recent average" refers to. Capped so price ingestion stays within limits. */
   AVERAGE_WINDOW_HOURS: z.coerce.number().int().min(1).max(72).default(48),
+  /** Probability of thunder, in percent, from which thunder counts as expected in an hour. */
+  THUNDER_PROBABILITY_PERCENT: z.coerce.number().min(0).max(100).default(20),
   /** Identifying User-Agent required by MET Norway's terms of service. */
   MET_USER_AGENT: z.string().min(1),
 });
@@ -15,6 +17,7 @@ export interface Config {
   minPriceDiffSekPerKwh: number;
   priceDiffPercent: number;
   averageWindowHours: number;
+  thunderProbabilityPercent: number;
   metUserAgent: string;
 }
 
@@ -24,12 +27,14 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
     MIN_PRICE_DIFF_ORE_PER_KWH: env.MIN_PRICE_DIFF_ORE_PER_KWH,
     PRICE_DIFF_PERCENT: env.PRICE_DIFF_PERCENT,
     AVERAGE_WINDOW_HOURS: env.AVERAGE_WINDOW_HOURS,
+    THUNDER_PROBABILITY_PERCENT: env.THUNDER_PROBABILITY_PERCENT,
     MET_USER_AGENT: env.MET_USER_AGENT,
   });
   return {
     minPriceDiffSekPerKwh: vars.MIN_PRICE_DIFF_ORE_PER_KWH / 100,
     priceDiffPercent: vars.PRICE_DIFF_PERCENT,
     averageWindowHours: vars.AVERAGE_WINDOW_HOURS,
+    thunderProbabilityPercent: vars.THUNDER_PROBABILITY_PERCENT,
     metUserAgent: vars.MET_USER_AGENT,
   };
 }

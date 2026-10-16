@@ -1,4 +1,4 @@
-import type { ThunderHour } from "../integrations/metno";
+import type { ThunderHour } from "../domain/thunder";
 
 export interface CachedForecast {
   hours: ThunderHour[];

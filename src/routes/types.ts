@@ -1,5 +1,7 @@
-/** Hono environment shared by all routes. `now` is injected so tests can control the clock. */
+import type { HttpFetcher } from "../integrations/metno";
+
+/** Hono environment shared by all routes. `now` and `fetcher` are injected so tests can control them. */
 export interface AppEnv {
   Bindings: Env;
-  Variables: { now: number };
+  Variables: { now: number; fetcher: HttpFetcher };
 }
