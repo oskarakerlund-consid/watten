@@ -3,7 +3,7 @@ import { it } from "vitest";
 import { parseConfig } from "../../src/config";
 import { extendForecast } from "../../src/db/forecastCache";
 import { HOUR_MS, toStockholmIso } from "../../src/domain/time";
-import type { HttpFetcher } from "../../src/integrations/metno";
+import type { HttpFetcher } from "../../src/integrations/http";
 import { getThunderForecast } from "../../src/services/thunderForecast";
 
 const PLACES: [string, number, number][] = [

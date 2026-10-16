@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ThunderHour } from "../domain/thunder";
+import type { HttpFetcher } from "./http";
 
 const BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/complete";
 
@@ -18,8 +19,6 @@ const responseSchema = z.object({
     ),
   }),
 });
-
-export type HttpFetcher = (url: string, init: RequestInit) => Promise<Response>;
 
 export type ForecastResult =
   | { status: "ok"; hours: ThunderHour[]; expires: number; lastModified: string | null }

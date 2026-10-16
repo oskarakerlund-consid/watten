@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { HttpFetcher } from "./integrations/metno";
+import type { HttpFetcher } from "./integrations/http";
 import { cheapestRoute } from "./routes/cheapest";
 import { statusRoute } from "./routes/status";
 import { thunderRoute } from "./routes/thunder";

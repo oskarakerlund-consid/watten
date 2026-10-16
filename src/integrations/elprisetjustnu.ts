@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { LocalDate, PriceInterval, Zone } from "../domain/types";
+import type { HttpFetcher } from "./http";
 
 const BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices";
 
@@ -13,8 +14,6 @@ const responseSchema = z
   )
   .min(1);
 
-export type Fetcher = (url: string) => Promise<Response>;
-
 export type DayPricesResult = { status: "ok"; intervals: PriceInterval[] } | { status: "not-available" };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -27,7 +26,7 @@ export function dayPricesUrl(zone: Zone, date: LocalDate): string {
  * Fetches the prices for one Swedish calendar day and zone.
  * Returns `not-available` when the day is not published yet (HTTP 404); throws on other errors or invalid data.
  */
-export async function fetchDayPrices(fetcher: Fetcher, zone: Zone, date: LocalDate): Promise<DayPricesResult> {
+export async function fetchDayPrices(fetcher: HttpFetcher, zone: Zone, date: LocalDate): Promise<DayPricesResult> {
   const url = dayPricesUrl(zone, date);
   const response = await fetcher(url);
 
