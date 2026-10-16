@@ -15,21 +15,21 @@ const querySchema = z
   .refine((q) => q.interval <= q.period, { message: "interval must not be longer than period", path: ["interval"] });
 
 export const cheapestRoute = new Hono<AppEnv>().get("/", validQuery(querySchema), async (c) => {
-  const { zone, interval, period } = c.req.valid("query");
+  const { zone, interval: intervalHours, period: periodHours } = c.req.valid("query");
   const now = c.get("now");
 
-  const intervals = await loadZoneIntervals(c.env.DB, zone, now, now + period * HOUR_MS);
-  const window = cheapestWindow(intervals, now, interval * HOUR_MS, period * HOUR_MS);
-  if (!window) return c.json({ error: `Not enough known prices for ${zone} in the next ${period} hours` }, 503);
+  const prices = await loadZoneIntervals(c.env.DB, zone, now, now + periodHours * HOUR_MS);
+  const cheapest = cheapestWindow(prices, now, intervalHours * HOUR_MS, periodHours * HOUR_MS);
+  if (!cheapest) return c.json({ error: `Not enough known prices for ${zone} in the next ${periodHours} hours` }, 503);
 
   return c.json({
     zone,
-    interval,
-    period,
-    start: new Date(window.start).toISOString(),
-    end: new Date(window.end).toISOString(),
-    startLocal: toStockholmIso(window.start),
-    endLocal: toStockholmIso(window.end),
-    averageSekPerKwh: window.averageSekPerKwh,
+    interval: intervalHours,
+    period: periodHours,
+    start: new Date(cheapest.start).toISOString(),
+    end: new Date(cheapest.end).toISOString(),
+    startLocal: toStockholmIso(cheapest.start),
+    endLocal: toStockholmIso(cheapest.end),
+    averageSekPerKwh: cheapest.averageSekPerKwh,
   });
 });

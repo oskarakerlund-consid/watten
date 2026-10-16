@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchCheapest, fetchStatus, fetchThunder, type CheapestWindow, type PriceStatus, type Result, type ThunderForecast } from "./lib/api";
+  import { fetchCheapest, fetchStatus, fetchThunder, type CheapestResponse, type PriceStatusResponse, type Result, type ThunderResponse } from "./lib/api";
   import { locate, toLocationUpdate } from "./lib/geolocation";
   import { trackLatest } from "./lib/latest";
   import { loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
@@ -22,9 +22,9 @@
   let locating = $state(false);
   let settingsOpen = $state(false);
 
-  let status = $state<Result<PriceStatus> | null>(null);
-  let cheapest = $state<Result<CheapestWindow> | null>(null);
-  let thunder = $state<Result<ThunderForecast> | null>(null);
+  let status = $state<Result<PriceStatusResponse> | null>(null);
+  let cheapest = $state<Result<CheapestResponse> | null>(null);
+  let thunder = $state<Result<ThunderResponse> | null>(null);
   let updated = $state<Date | null>(null);
 
   const level = $derived(status?.ok ? status.data.level : "unknown");
@@ -55,15 +55,15 @@
   async function refresh() {
     if (!zone) return;
     const isLatest = startRefresh();
-    const [s, c, t] = await Promise.all([
+    const [nextStatus, nextCheapest, nextThunder] = await Promise.all([
       fetchStatus(zone),
       fetchCheapest(zone, INTERVAL_HOURS, PERIOD_HOURS),
       thunderPlace ? fetchThunder(thunderPlace.lat, thunderPlace.lon, PERIOD_HOURS) : Promise.resolve(null),
     ]);
     if (!isLatest()) return;
-    status = s;
-    cheapest = c;
-    thunder = t;
+    status = nextStatus;
+    cheapest = nextCheapest;
+    thunder = nextThunder;
     updated = new Date();
   }
 

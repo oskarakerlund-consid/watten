@@ -2,7 +2,7 @@ import type { Zone } from "./zones";
 
 export type PriceLevel = "cheap" | "normal" | "expensive";
 
-export interface PriceStatus {
+export interface PriceStatusResponse {
   zone: Zone;
   level: PriceLevel;
   currentSekPerKwh: number;
@@ -11,13 +11,13 @@ export interface PriceStatus {
   averageWindowHours: number;
 }
 
-export interface CheapestWindow {
+export interface CheapestResponse {
   start: string;
   end: string;
   averageSekPerKwh: number;
 }
 
-export interface ThunderForecast {
+export interface ThunderResponse {
   expected: boolean;
   start: string | null;
   end: string | null;
@@ -39,10 +39,10 @@ async function get<T>(path: string, params: Record<string, string | number>): Pr
   }
 }
 
-export const fetchStatus = (zone: Zone) => get<PriceStatus>("/api/status", { zone });
+export const fetchStatus = (zone: Zone) => get<PriceStatusResponse>("/api/status", { zone });
 
 export const fetchCheapest = (zone: Zone, interval: number, period: number) =>
-  get<CheapestWindow>("/api/cheapest", { zone, interval, period });
+  get<CheapestResponse>("/api/cheapest", { zone, interval, period });
 
 export const fetchThunder = (lat: number, lon: number, hours: number) =>
-  get<ThunderForecast>("/api/thunder", { lat, lon, hours });
+  get<ThunderResponse>("/api/thunder", { lat, lon, hours });
