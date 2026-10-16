@@ -57,6 +57,8 @@ Code layout under `src/`:
 | `src/routes/` | HTTP routes (Hono) with query validation. Routes only read from D1 and never call upstream APIs. |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification. |
 | `src/config.ts` | Parsing and validation of the Worker vars. |
+| `web/src/lib/zones/` | Price-zone polygons and the zone lookup used by the frontend. |
+| `scripts/` | Developer scripts: producing the zone data and looking up a zone for a position. |
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
 | `src/db/` | D1 access. |
 | `src/services/` | Combines integrations and storage, e.g. the cached thunder forecast. |
@@ -69,6 +71,18 @@ Code layout under `src/`:
 
 - [Elpriset just nu](https://www.elprisetjustnu.se/elpris-api) – electricity prices per price area, free and without API key. Prices exclude VAT, surcharges and taxes. The client is implemented (`src/integrations/elprisetjustnu.ts`) but not yet scheduled. On the day summer time ends, the API reports one interval with a wrong end time; the client caps every interval at the start of the next one. Recorded responses used in tests live in `test/fixtures/elprisetjustnu/`.
 - [MET Norway](https://api.met.no/) – weather forecasts from Locationforecast 2.0, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (data from MET Norway). Watten uses the hourly `probability_of_thunder`, available for all of Sweden about 55 hours ahead. Following MET's [terms of service](https://developer.yr.no/doc/TermsOfService/), requests send an identifying `User-Agent`, positions have at most four decimals, and responses are cached in D1 until their `Expires` time and then revalidated with `If-Modified-Since`. If MET cannot be reached, the last cached forecast is served and marked stale. Positions are rounded to two decimals (about 1 km) before they are used, so nearby users share cached forecasts.
+
+### Price-zone data
+
+The frontend guesses the user's price zone (`SE1`–`SE4`) from their position with simplified zone polygons in `web/src/lib/zones/zones.json`. There is no official, openly licensed map of the Swedish price zones, so the polygons are derived from the GeoJSON files in [entsoe-py](https://github.com/EnergieID/entsoe-py) (MIT, see `web/src/lib/zones/LICENSE-entsoe-py`), whose authors redrew the Swedish zones by hand. The guess can therefore be wrong near zone borders, and the user can always change the zone.
+
+How `zones.json` was produced:
+
+1. Download `SE_1.geojson`–`SE_4.geojson` from `entsoe/geo/geojson/` in entsoe-py at commit [`12ce32f`](https://github.com/EnergieID/entsoe-py/tree/12ce32fa56785c744367a1e506a488596d02f17d/entsoe/geo/geojson) (last changed 2022-04-16) into a directory outside the repo.
+2. Run `node scripts/simplify-zones.mjs <that directory> 12ce32fa56785c744367a1e506a488596d02f17d 2`. It simplifies every polygon with Douglas–Peucker at a 2 km tolerance (`scripts/simplifyGeometry.ts`), rounds coordinates to three decimals (about 100 m) and writes `zones.json` (863 points, 14 KB, about 5 KB gzipped).
+3. Check the result with `npm test` and spot-check positions with `node scripts/guess-zone.mjs <lat> <lon>`.
+
+Compared with the original polygons on a grid of about 19,400 points across Sweden, the simplified data gives a different zone for 2 points (0.01 %). Positions outside every polygon (coasts, small islands) get the nearest zone within 10 km. If Svenska kraftnät changes the zone division, the data must be replaced; the zone list itself lives only in `src/domain/types.ts`.
 
 ### Dependencies
 

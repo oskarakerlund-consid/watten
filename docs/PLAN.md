@@ -30,7 +30,7 @@ Resolved:
 - **Validation:** Zod (+ `@hono/zod-validator`).
 - **Layout:** one root `package.json`; Worker in `src/`; Svelte + Vite app in `web/` with its own Vite config; `web/dist` is the Wrangler assets directory.
 - **Location (D8) and zone (D10 = option B):** if no position is stored, the frontend shows a "use my location" button that requests the browser position (never automatically on load). The position is rounded to 2 decimals (~1 km) in the browser, stored in `localStorage`, and sent as `lat`/`lon` to `/api/thunder`. The zone is guessed from the position with bundled, simplified polygons derived from `entsoe-py`, without asking for confirmation. Afterwards the user can change the zone manually and reload the GPS position; reloading re-guesses the zone and overwrites a manual choice (D11). Both are stored in `localStorage`.
-- **Polygon simplification (D12):** a small dependency-free script, `scripts/simplify-zones.mjs` (Douglas–Peucker), run once by hand; the procedure is documented in `README.md`. Without a position (denied, unavailable), the user picks the zone and a fixed representative point per zone is used for thunder.
+- **Polygon simplification (D12):** a small dependency-free script, `scripts/simplify-zones.mjs` with the logic in `scripts/simplifyGeometry.ts` (Douglas–Peucker), run once by hand; the procedure is documented in `README.md`. Done in step 9a. Without a position (denied, unavailable), the user picks the zone and a fixed representative point per zone is used for thunder.
 - **Thunder horizon (D9):** default 8 hours, maximum 24, additionally capped by the real forecast horizon found in step 7.
 - **Web Push (D4):** spike one Workers-compatible library (`web-push-neo`, `web-push-browser` or `PushForge`; none reviewed yet) in step 11; fall back to hand-rolled Web Crypto.
 - **License (D13):** MIT, in `LICENSE` from step 1.
@@ -61,7 +61,7 @@ Nothing is installed until you approve the list for the step that needs it.
 - Step 1 (installed): `typescript`, `wrangler`, `hono`, `vitest`, `@cloudflare/vitest-plugin` (successor of the deprecated `@cloudflare/vitest-pool-workers`)
 - Step 3 (installed): `zod`
 - Step 6 (installed): `@hono/zod-validator`
-- Step 9: `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`
+- Step 9b: `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`
 - Step 11: Web Push library (D4), if not hand-rolled
 
 ## Cloudflare and third-party setup (user actions)
@@ -216,7 +216,19 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** With `npm run dev` running, open <http://localhost:8787/api/thunder?lat=59.33&lon=18.07&hours=8> → thunder yes/no and approximate time. Try a position outside Sweden or `hours=48` → 400.
 
-### Step 9 – Svelte frontend (overview screen)
+### Step 9a – Price-zone data ✅
+
+**Goal:** guess the price zone from a position, using simplified polygons from `entsoe-py` (D10, option B).
+
+**Files:** `scripts/simplifyGeometry.ts` (+ tests; Douglas–Peucker in a local km projection), `scripts/simplify-zones.mjs` (CLI: reads the downloaded GeoJSON files given as arguments, writes `zones.json`; Node runs the imported `.ts` file natively, so no extra dependency), `scripts/guess-zone.mjs` (manual lookup), `web/src/lib/zones/zones.json`, `web/src/lib/zones/guessZone.ts` (+ tests), `web/src/lib/zones/LICENSE-entsoe-py`, `tsconfig.json` (includes `scripts/` and `web/src/lib/`; the frontend gets its own config in 9b).
+
+**Consequences:** Source: entsoe-py commit `12ce32f` (last changed 2022-04-16). Tolerance 2 km: 863 points, 14 KB (~5 KB gzipped); 0.5 and 1 km gave the same accuracy at 2–3× the size. Compared with the original polygons on a ~5 km grid (19,394 points), 2 points (0.01 %) get another zone and none get no zone. Point-in-polygon first, else the nearest zone within 10 km, else `null`. The original GeoJSON files are not committed; the README documents how to reproduce `zones.json`.
+
+**Verify:** unit tests for simplification and for 12 Swedish towns across all zones plus Oslo, Helsinki and Copenhagen (no zone).
+
+**Manual check (you):** `node scripts/guess-zone.mjs 59.33 18.07` → `SE3`; try your own position or towns near zone borders.
+
+### Step 9b – Svelte frontend (overview screen)
 
 **Goal:** one SPA screen that answers "is it cheap, when is it cheapest, will it thunder?" at a glance.
 
