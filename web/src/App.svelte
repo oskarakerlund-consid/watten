@@ -48,13 +48,18 @@
     else message = update.message;
   }
 
+  /** Increases with every refresh, so a slow response for an old zone or position cannot overwrite a newer one. */
+  let latestRefresh = 0;
+
   async function refresh() {
     if (!zone) return;
+    const thisRefresh = ++latestRefresh;
     const [s, c, t] = await Promise.all([
       fetchStatus(zone),
       fetchCheapest(zone, INTERVAL_HOURS, PERIOD_HOURS),
       thunderPlace ? fetchThunder(thunderPlace.lat, thunderPlace.lon, PERIOD_HOURS) : Promise.resolve(null),
     ]);
+    if (thisRefresh !== latestRefresh) return;
     status = s;
     cheapest = c;
     thunder = t;
