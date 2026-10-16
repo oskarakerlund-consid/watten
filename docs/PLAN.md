@@ -168,13 +168,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** `npm run db:migrate:local`, `npm run dev`, then in another terminal `curl "localhost:8787/cdn-cgi/local/scheduled?cron=…"` and `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"` → four zones with rows for the backfilled days, today and (after 13:00) tomorrow.
 
-### Step 5 – Price classification
+### Step 5 – Price classification ✅
 
 **Goal:** turn price data into `cheap` / `normal` / `expensive` for "now → +60 min", relative to the average of the last 48 hours.
 
-**Files:** `src/config.ts` (Zod-parsed vars with defaults), `src/domain/classify.ts`, `src/domain/classify.test.ts`, `wrangler.jsonc` (vars), `docs/classification.md` (documents the window and thresholds).
+**Files:** `src/config.ts` (Zod-parsed vars with defaults), `src/domain/classify.ts`, `src/domain/classify.test.ts`, `wrangler.jsonc` (vars), `src/jobs/ingestPrices.ts` (history days derived from the window), `test/live/classification.live.test.ts`. The definition is documented in the README's Configuration section instead of a separate `docs/classification.md`.
 
-**Consequences:** Cheap or expensive requires a deviation larger than both the minimum öre/kWh difference (initially 50) and a percentage threshold chosen here on real data. All three values come from configuration, so you can tune them by editing `wrangler.jsonc` and redeploying. This one function feeds the status endpoint, the frontend colors and, later, price notifications, so the definition exists in exactly one place. Thresholds are constants in one file.
+**Consequences:** Cheap or expensive requires a deviation larger than both the minimum öre/kWh difference (initially 50) and a percentage threshold chosen here on real data. All three values come from configuration, so you can tune them by editing `wrangler.jsonc` and redeploying. This one function feeds the status endpoint, the frontend colors and, later, price notifications, so the definition exists in exactly one place. Thresholds are constants in one file. The window is capped at 72 h and price ingestion keeps `ceil(window / 24)` days of history, so a run stays at ≤ 42 subrequests.
 
 **Verify:** unit tests on hand-built series (flat day, evening peak, zero and negative prices, too little history); review the classification of real recorded days with you before moving on.
 

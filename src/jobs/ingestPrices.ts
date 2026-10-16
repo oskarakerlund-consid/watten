@@ -4,9 +4,6 @@ import { addDays, stockholmDate, stockholmDayBounds, stockholmStartOfDay } from 
 import { type LocalDate, ZONES, type Zone } from "../domain/types";
 import { type Fetcher, fetchDayPrices } from "../integrations/elprisetjustnu";
 
-/** Full days kept before today. Two days cover the 48-hour average window used for price classification. */
-const HISTORY_DAYS = 2;
-
 export interface IngestResult {
   /** Zone/day pairs that were fetched and stored. */
   stored: string[];
@@ -17,14 +14,24 @@ export interface IngestResult {
 const label = (zone: Zone, date: LocalDate) =>
   `${zone} ${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
 
+/** Full days to keep before today so that a trailing average window of `hours` is always covered. */
+export function historyDaysFor(hours: number): number {
+  return Math.ceil(hours / 24);
+}
+
 /**
- * Makes sure D1 holds complete prices for every zone from `HISTORY_DAYS` days ago up to tomorrow.
+ * Makes sure D1 holds complete prices for every zone from `historyDays` days ago up to tomorrow.
  * Only days that are missing or incomplete are fetched, so repeated runs are cheap and idempotent.
  * Rows older than the kept history are deleted. Throws after processing all days if any fetch failed.
  */
-export async function ingestPrices(db: D1Database, fetcher: Fetcher, now: number): Promise<IngestResult> {
+export async function ingestPrices(
+  db: D1Database,
+  fetcher: Fetcher,
+  now: number,
+  historyDays: number,
+): Promise<IngestResult> {
   const today = stockholmDate(now);
-  const days = Array.from({ length: HISTORY_DAYS + 2 }, (_, i) => addDays(today, i - HISTORY_DAYS));
+  const days = Array.from({ length: historyDays + 2 }, (_, i) => addDays(today, i - historyDays));
   const firstDay = days[0]!;
   const lastDay = days.at(-1)!;
 

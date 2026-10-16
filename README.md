@@ -34,7 +34,8 @@ Code layout under `src/`:
 | --- | --- |
 | `src/index.ts` | Worker entry point and route mounting. |
 | `src/routes/` | _Planned:_ HTTP routes (Hono). |
-| `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search. |
+| `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification. |
+| `src/config.ts` | Parsing and validation of the Worker vars. |
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
 | `src/db/` | D1 access. |
 | `src/jobs/` | Scheduled jobs (price ingestion). |
@@ -86,7 +87,17 @@ Local secrets go in `.dev.vars` (git-ignored); see `.dev.vars.example`. None are
 
 ## Configuration
 
-_None yet._
+Tunable values are Worker vars in `wrangler.jsonc`. They are validated in `src/config.ts`. To change one, edit `wrangler.jsonc` and redeploy; values edited in the Cloudflare dashboard are overwritten by the next `wrangler deploy`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MIN_PRICE_DIFF_ORE_PER_KWH` | `50` | Minimum difference from the recent average, in öre/kWh, for a price to count as cheap or expensive. |
+| `PRICE_DIFF_PERCENT` | `20` | Minimum difference from the recent average, in percent of it. |
+| `AVERAGE_WINDOW_HOURS` | `48` | Length of the trailing window used as the recent average (1–72). Price ingestion keeps enough history to cover it. |
+
+**Price classification** (`src/domain/classify.ts`): the average price from now to one hour ahead is compared with the time-weighted average over the trailing window. It is *expensive* if it is above the average by more than the threshold, *cheap* if it is below by more than the threshold, and *normal* otherwise. The threshold is the larger of `MIN_PRICE_DIFF_ORE_PER_KWH` and `PRICE_DIFF_PERCENT` of the average, so the absolute minimum also prevents tiny differences from counting when the average is close to zero or negative. Prices exclude VAT, surcharges and taxes.
+
+`npm run test:live` prints the current classification per zone and how often each level would have occurred over the last 24 hours and the known hours ahead, for the configured values and a few alternatives.
 
 ## Deployment
 
