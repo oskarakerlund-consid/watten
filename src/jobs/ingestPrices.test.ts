@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { loadIntervals } from "../db/prices";
 import { stockholmDayBounds } from "../domain/time";
 import { dayPricesUrl, type Fetcher } from "../integrations/elprisetjustnu";
-import { ingestPrices } from "./ingestPrices";
+import { historyDaysFor, ingestPrices } from "./ingestPrices";
 
 // 2026-10-16 12:00 Swedish time. History starts 2026-10-14, tomorrow is 2026-10-17.
 const NOW = Date.UTC(2026, 9, 16, 10);
@@ -55,7 +55,7 @@ beforeEach(async () => {
 describe("ingestPrices", () => {
   it("backfills history, today and tomorrow for every zone into an empty database", async () => {
     const api = fakeApi(DAYS);
-    const result = await ingestPrices(env.DB, api.fetcher, NOW);
+    const result = await ingestPrices(env.DB, api.fetcher, NOW, 2);
 
     expect(api.requested).toHaveLength(16);
     expect(result.stored).toHaveLength(16);
@@ -66,7 +66,7 @@ describe("ingestPrices", () => {
   });
 
   it("stores prices that can be read back as UTC intervals", async () => {
-    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW);
+    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW, 2);
     const { start, end } = stockholmDayBounds(DAYS[2]!);
     const today = (await loadIntervals(env.DB, start, end)).filter((i) => i.zone === "SE3");
 
@@ -76,34 +76,34 @@ describe("ingestPrices", () => {
   });
 
   it("only fetches tomorrow on later runs, until it is published", async () => {
-    await ingestPrices(env.DB, fakeApi(DAYS.slice(0, 3)).fetcher, NOW);
+    await ingestPrices(env.DB, fakeApi(DAYS.slice(0, 3)).fetcher, NOW, 2);
 
     const beforePublishing = fakeApi(DAYS.slice(0, 3));
-    const first = await ingestPrices(env.DB, beforePublishing.fetcher, NOW);
+    const first = await ingestPrices(env.DB, beforePublishing.fetcher, NOW, 2);
     expect(beforePublishing.requested).toEqual(["SE1", "SE2", "SE3", "SE4"].map((z) => dayPricesUrl(z as "SE1", DAYS[3]!)));
     expect(first.notAvailable).toHaveLength(4);
 
     const afterPublishing = fakeApi(DAYS);
-    const second = await ingestPrices(env.DB, afterPublishing.fetcher, NOW);
+    const second = await ingestPrices(env.DB, afterPublishing.fetcher, NOW, 2);
     expect(second.stored).toHaveLength(4);
 
     const done = fakeApi(DAYS);
-    await ingestPrices(env.DB, done.fetcher, NOW);
+    await ingestPrices(env.DB, done.fetcher, NOW, 2);
     expect(done.requested).toEqual([]);
   });
 
   it("is idempotent", async () => {
-    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW);
+    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW, 2);
     await env.DB.prepare("DELETE FROM prices WHERE zone = 'SE1' AND start_utc >= ?1").bind(stockholmDayBounds(DAYS[3]!).start).run();
-    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW);
+    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW, 2);
 
     expect(await countByZone()).toEqual(["SE1", "SE2", "SE3", "SE4"].map((zone) => ({ zone, n: 4 * 96 })));
   });
 
   it("deletes rows older than the kept history", async () => {
-    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW);
+    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW, 2);
     // One day later, 2026-10-14 falls out of the history.
-    await ingestPrices(env.DB, fakeApi([...DAYS, { year: 2026, month: 10, day: 18 }]).fetcher, NOW + 24 * 3_600_000);
+    await ingestPrices(env.DB, fakeApi([...DAYS, { year: 2026, month: 10, day: 18 }]).fetcher, NOW + 24 * 3_600_000, 2);
 
     const oldest = await env.DB.prepare("SELECT MIN(start_utc) AS t FROM prices").first<{ t: number }>();
     expect(oldest?.t).toBe(stockholmDayBounds(DAYS[1]!).start);
@@ -114,7 +114,15 @@ describe("ingestPrices", () => {
     const failing: Fetcher = async (url) =>
       url.includes("_SE2") ? new Response("down", { status: 503 }) : api.fetcher(url);
 
-    await expect(ingestPrices(env.DB, failing, NOW)).rejects.toThrow("failed for 4 zone/day(s)");
+    await expect(ingestPrices(env.DB, failing, NOW, 2)).rejects.toThrow("failed for 4 zone/day(s)");
     expect(await countByZone()).toEqual(["SE1", "SE3", "SE4"].map((zone) => ({ zone, n: 4 * 96 })));
+  });
+});
+
+describe("historyDaysFor", () => {
+  it("keeps enough full days to cover the window", () => {
+    expect(historyDaysFor(48)).toBe(2);
+    expect(historyDaysFor(49)).toBe(3);
+    expect(historyDaysFor(12)).toBe(1);
   });
 });

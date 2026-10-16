@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { ingestPrices } from "./jobs/ingestPrices";
+import { parseConfig } from "./config";
+import { historyDaysFor, ingestPrices } from "./jobs/ingestPrices";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -9,7 +10,9 @@ export default {
   fetch: app.fetch,
 
   async scheduled(controller, env) {
-    const result = await ingestPrices(env.DB, (url) => fetch(url), controller.scheduledTime);
+    const config = parseConfig(env);
+    const historyDays = historyDaysFor(config.averageWindowHours);
+    const result = await ingestPrices(env.DB, (url) => fetch(url), controller.scheduledTime, historyDays);
     console.log("Price ingestion", JSON.stringify(result));
   },
 } satisfies ExportedHandler<Env>;

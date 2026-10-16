@@ -11,6 +11,12 @@
       "migrations_dir": "migrations"
     }
   ],
+  "vars": {
+    // Price classification, see README "Configuration". Change here and redeploy.
+    "MIN_PRICE_DIFF_ORE_PER_KWH": 20,
+    "PRICE_DIFF_PERCENT": 20,
+    "AVERAGE_WINDOW_HOURS": 48
+  },
   "triggers": {
     // UTC. Covers 13:00 Swedish time (when tomorrow's prices are published) in both winter and summer time.
     "crons": ["*/15 11-14 * * *"]
