@@ -192,13 +192,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** With `npm run dev` running, open <http://localhost:8787/api/status?zone=SE3> and <http://localhost:8787/api/cheapest?zone=SE3&interval=2&period=8> → real JSON. Try `zone=SE9` or `interval=99` → 400 with a clear message.
 
-### Step 7 – MET Norway integration
+### Step 7 – MET Norway integration ✅
 
 **Goal:** fetch, validate and cache the forecast for a coordinate.
 
-**Files:** `src/integrations/metno.ts` (+ tests, fixtures in `test/fixtures/`), `migrations/0002_forecast_cache.sql` (response body plus `Expires` / `Last-Modified`, keyed by rounded coordinates), `src/db/forecastCache.ts`, `wrangler.jsonc` (`MET_USER_AGENT` var).
+**Files:** `src/integrations/metno.ts` (+ tests; fixture `test/fixtures/metno/2026-10-16_stockholm_complete.json`), `migrations/0002_forecast_cache.sql` (parsed hourly thunder probabilities plus `Expires` / `Last-Modified`, keyed by rounded coordinates), `src/db/forecastCache.ts`, `src/services/thunderForecast.ts` (+ tests; cache, conditional requests, stale fallback), `src/config.ts` and `wrangler.jsonc` (`MET_USER_AGENT`), `test/live/metno.live.test.ts`.
 
-**Consequences:** Must send the identifying `User-Agent`, truncate coordinates to 4 decimals (we round further, see D8), honor `Expires` and `If-Modified-Since`, and back off on 429. Before designing on `probability_of_thunder`, confirm in a real response that it exists for locations in northern, central and southern Sweden and find the forecast horizon; if it does not, fall back to thunder `symbol_code` values from `compact.json` (verify which codes). The finding is recorded in `CLAUDE.md` and settles D9.
+**Consequences:** Must send the identifying `User-Agent`, truncate coordinates to 4 decimals (we round further, see D8), honor `Expires` and `If-Modified-Since`, and back off on 429. Before designing on `probability_of_thunder`, confirm in a real response that it exists for locations in northern, central and southern Sweden and find the forecast horizon; if it does not, fall back to thunder `symbol_code` values from `compact.json` (verify which codes). The finding is recorded in `CLAUDE.md` and settles D9. **Result (2026-10-16):** `probability_of_thunder` is present for Kiruna, Sundsvall, Stockholm and Malmö, hourly for ~55 hours ahead, so the symbol-code fallback is not needed and the 24 h maximum (D9) is well within the horizon. Only the parsed hourly probabilities (~2 KB) are cached, not the ~90 KB raw response. After an error, an older forecast is served as stale and MET is not asked again for 10 minutes.
 
 **Verify:** fixture tests; manual calls from `wrangler dev` for three Swedish locations; a second call proves conditional requests and caching work.
 
@@ -288,7 +288,7 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 ## Risks, highest first
 
 1. **Web Push on Workers** (steps 11, 12): library fit and the 10 ms CPU budget per invocation. Mitigation: spike, measure, keep subscriber count small.
-2. **Thunder data availability** (steps 7, 8): `probability_of_thunder` may not cover all of Sweden or reach 8 hours. Mitigation: verify in step 7 before design; symbol-code fallback.
+2. ~~**Thunder data availability**~~ resolved in step 7: `probability_of_thunder` covers all of Sweden ~55 hours ahead.
 3. **Tuning "relative cheap/expensive"** (step 5): subjective and drives every user-facing feature. Mitigation: tune on real data with you before building on it.
 4. **Upstream stability** (steps 3, 7): both sources are free with no SLA. Mitigation: D1 cache, stale-data handling.
 5. **Time zones and DST** (steps 2, 12): wrong local-day boundaries silently misplace "tomorrow" or "next 8 hours". Mitigation: pure functions with dedicated DST tests.

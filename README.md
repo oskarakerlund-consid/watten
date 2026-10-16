@@ -43,7 +43,7 @@ Prices are spot prices in SEK/kWh excluding VAT, surcharges and taxes.
 Everything runs on Cloudflare's free tier:
 
 - A single **Cloudflare Worker** written in TypeScript, with [Hono](https://hono.dev/) for API routing.
-- **Cloudflare D1** stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
+- **Cloudflare D1** caches thunder forecasts per rounded position and stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
 - A **Cron Trigger** (`*/15 11-14 * * *`, UTC) runs the price ingestion every 15 minutes around 13:00 Swedish time, when tomorrow's prices are published. Each run fetches only days that are missing or incomplete, so once tomorrow's prices are stored, the remaining runs that day do nothing.
 - _Planned:_ weather checks, a Svelte SPA served as Workers static assets from the same Worker, and Web Push with VAPID.
 
@@ -58,6 +58,7 @@ Code layout under `src/`:
 | `src/config.ts` | Parsing and validation of the Worker vars. |
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
 | `src/db/` | D1 access. |
+| `src/services/` | Combines integrations and storage, e.g. the cached thunder forecast. |
 | `src/jobs/` | Scheduled jobs (price ingestion). |
 | `migrations/` | D1 schema migrations. |
 
@@ -66,7 +67,7 @@ Code layout under `src/`:
 ### Data sources
 
 - [Elpriset just nu](https://www.elprisetjustnu.se/elpris-api) – electricity prices per price area, free and without API key. Prices exclude VAT, surcharges and taxes. The client is implemented (`src/integrations/elprisetjustnu.ts`) but not yet scheduled. On the day summer time ends, the API reports one interval with a wrong end time; the client caps every interval at the start of the next one. Recorded responses used in tests live in `test/fixtures/elprisetjustnu/`.
-- _Planned:_ [MET Norway](https://api.met.no/) – weather forecasts (CC BY 4.0).
+- [MET Norway](https://api.met.no/) – weather forecasts from Locationforecast 2.0, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (data from MET Norway). Watten uses the hourly `probability_of_thunder`, available for all of Sweden about 55 hours ahead. Following MET's [terms of service](https://developer.yr.no/doc/TermsOfService/), requests send an identifying `User-Agent`, positions have at most four decimals, and responses are cached in D1 until their `Expires` time and then revalidated with `If-Modified-Since`. If MET cannot be reached, the last cached forecast is served and marked stale. The client is implemented (`src/integrations/metno.ts`, `src/services/thunderForecast.ts`) but not yet exposed through the API.
 
 ### Dependencies
 
@@ -115,6 +116,7 @@ Tunable values are Worker vars in `wrangler.jsonc`. They are validated in `src/c
 | `MIN_PRICE_DIFF_ORE_PER_KWH` | `20` | Minimum difference from the recent average, in öre/kWh, for a price to count as cheap or expensive. |
 | `PRICE_DIFF_PERCENT` | `20` | Minimum difference from the recent average, in percent of it. |
 | `AVERAGE_WINDOW_HOURS` | `48` | Length of the trailing window used as the recent average (1–72). Price ingestion keeps enough history to cover it. |
+| `MET_USER_AGENT` | – (required) | Identifies the app to MET Norway, as their terms require. If you deploy your own copy, change it to your own app name and contact URL or e-mail. |
 
 **Price classification** (`src/domain/classify.ts`): the average price from now to one hour ahead is compared with the time-weighted average over the trailing window. It is *expensive* if it is above the average by more than the threshold, *cheap* if it is below by more than the threshold, and *normal* otherwise. The threshold is the larger of `MIN_PRICE_DIFF_ORE_PER_KWH` and `PRICE_DIFF_PERCENT` of the average, so the absolute minimum also prevents tiny differences from counting when the average is close to zero or negative. Prices exclude VAT, surcharges and taxes.
 

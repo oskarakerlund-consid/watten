@@ -15,7 +15,9 @@
     // Price classification, see README "Configuration". Change here and redeploy.
     "MIN_PRICE_DIFF_ORE_PER_KWH": 20,
     "PRICE_DIFF_PERCENT": 20,
-    "AVERAGE_WINDOW_HOURS": 48
+    "AVERAGE_WINDOW_HOURS": 48,
+    // Identifies this app to MET Norway, as their terms of service require.
+    "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)"
   },
   "triggers": {
     // UTC. Covers 13:00 Swedish time (when tomorrow's prices are published) in both winter and summer time.
