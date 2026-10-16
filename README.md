@@ -66,6 +66,7 @@ Prerequisites: Node.js 24 and npm.
 npm install
 npm run dev        # starts the Worker locally on http://localhost:8787
 npm test           # runs the tests in the Workers runtime
+npm run test:live  # manual checks against the real upstream APIs (needs network)
 npm run typecheck  # generates Worker types and runs the TypeScript compiler
 ```
 

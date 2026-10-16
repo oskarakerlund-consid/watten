@@ -7,4 +7,8 @@ export default defineConfig({
       wrangler: { configPath: "./wrangler.jsonc" },
     }),
   ],
+  test: {
+    // Live checks against real APIs run separately with `npm run test:live`.
+    exclude: ["**/node_modules/**", "test/live/**"],
+  },
 });
