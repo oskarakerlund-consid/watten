@@ -16,7 +16,7 @@ it("shows the price classification for all zones", async () => {
     [`configured (${config.minPriceDiffSekPerKwh * 100} öre, ${config.priceDiffPercent} %)`, config],
     ["percent only, 20 %", { ...config, minPriceDiffSekPerKwh: 0, priceDiffPercent: 20 }],
     ["percent only, 30 %", { ...config, minPriceDiffSekPerKwh: 0, priceDiffPercent: 30 }],
-    ["20 öre or 20 %", { ...config, minPriceDiffSekPerKwh: 0.2, priceDiffPercent: 20 }],
+    ["50 öre or 20 %", { ...config, minPriceDiffSekPerKwh: 0.5, priceDiffPercent: 20 }],
   ];
 
   const lines = [`Average window: ${config.averageWindowHours} h. Prices in öre/kWh, excl. VAT.`, ""];

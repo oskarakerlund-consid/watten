@@ -91,7 +91,7 @@ Tunable values are Worker vars in `wrangler.jsonc`. They are validated in `src/c
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `MIN_PRICE_DIFF_ORE_PER_KWH` | `50` | Minimum difference from the recent average, in öre/kWh, for a price to count as cheap or expensive. |
+| `MIN_PRICE_DIFF_ORE_PER_KWH` | `20` | Minimum difference from the recent average, in öre/kWh, for a price to count as cheap or expensive. |
 | `PRICE_DIFF_PERCENT` | `20` | Minimum difference from the recent average, in percent of it. |
 | `AVERAGE_WINDOW_HOURS` | `48` | Length of the trailing window used as the recent average (1–72). Price ingestion keeps enough history to cover it. |
 

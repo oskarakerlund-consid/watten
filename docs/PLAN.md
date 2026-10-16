@@ -26,7 +26,7 @@ Not yet verified (checked in the step that needs it): per-send CPU cost of Web P
 Resolved:
 
 - **Users:** anyone in Sweden may use the service and subscribe; expected audience is a handful of people, tech demo, not commercial.
-- **Price classification (D2):** relative to the average price over the **last 48 hours**. A deviation must exceed a minimum absolute difference, initially **50 öre/kWh**, to count as cheap or expensive. The window, the minimum difference and the percentage threshold are configuration (see Configuration), not hard-coded. The percentage threshold is tuned on real data in step 5.
+- **Price classification (D2):** relative to the average price over the **last 48 hours**. A deviation must exceed both **20 öre/kWh** and **20 %** of the average to count as cheap or expensive (chosen in step 5 from real data; the initial 50 öre made SE1/SE2 always "normal"). The window, the minimum difference and the percentage threshold are configuration (see Configuration), not hard-coded.
 - **Validation:** Zod (+ `@hono/zod-validator`).
 - **Layout:** one root `package.json`; Worker in `src/`; Svelte + Vite app in `web/` with its own Vite config; `web/dist` is the Wrangler assets directory.
 - **Location (D8) and zone (D10 = option B):** if no position is stored, the frontend shows a "use my location" button that requests the browser position (never automatically on load). The position is rounded to 2 decimals (~1 km) in the browser, stored in `localStorage`, and sent as `lat`/`lon` to `/api/thunder`. The zone is guessed from the position with bundled, simplified polygons derived from `entsoe-py`, without asking for confirmation. Afterwards the user can change the zone manually and reload the GPS position; reloading re-guesses the zone and overwrites a manual choice (D11). Both are stored in `localStorage`.
@@ -82,11 +82,11 @@ Tunable values live in Wrangler `vars` (`wrangler.jsonc`), are parsed and defaul
 
 | Variable | Initial | Meaning |
 | --- | --- | --- |
-| `MIN_PRICE_DIFF_ORE_PER_KWH` | `50` | Minimum difference to the recent average for cheap/expensive. |
+| `MIN_PRICE_DIFF_ORE_PER_KWH` | `20` | Minimum difference to the recent average for cheap/expensive. |
 | `AVERAGE_WINDOW_HOURS` | `48` | Length of the trailing window used as "recent average". |
-| `PRICE_DIFF_PERCENT` | set in step 5 | Percentage deviation also required for cheap/expensive. |
+| `PRICE_DIFF_PERCENT` | `20` | Percentage deviation also required for cheap/expensive. |
 
-To change a value: edit `wrangler.jsonc` and run `wrangler deploy` (you deploy anyway). Wrangler treats the config file as the source of truth, so a value edited in the Cloudflare dashboard is **overwritten on the next deploy** unless `keep_vars = true` is set (verified in Wrangler docs). The plan uses the config file only, to avoid two places holding the same value. Note that prices from Elpriset just nu exclude VAT, and 50 öre/kWh is a large deviation compared with typical Swedish spot prices; expect "cheap"/"expensive" to be rare at first and tune with real data.
+To change a value: edit `wrangler.jsonc` and run `wrangler deploy` (you deploy anyway). Wrangler treats the config file as the source of truth, so a value edited in the Cloudflare dashboard is **overwritten on the next deploy** unless `keep_vars = true` is set (verified in Wrangler docs). The plan uses the config file only, to avoid two places holding the same value. Prices from Elpriset just nu exclude VAT.
 
 ## API (as planned)
 
@@ -174,7 +174,7 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Files:** `src/config.ts` (Zod-parsed vars with defaults), `src/domain/classify.ts`, `src/domain/classify.test.ts`, `wrangler.jsonc` (vars), `src/jobs/ingestPrices.ts` (history days derived from the window), `test/live/classification.live.test.ts`. The definition is documented in the README's Configuration section instead of a separate `docs/classification.md`.
 
-**Consequences:** Cheap or expensive requires a deviation larger than both the minimum öre/kWh difference (initially 50) and a percentage threshold chosen here on real data. All three values come from configuration, so you can tune them by editing `wrangler.jsonc` and redeploying. This one function feeds the status endpoint, the frontend colors and, later, price notifications, so the definition exists in exactly one place. Thresholds are constants in one file. The window is capped at 72 h and price ingestion keeps `ceil(window / 24)` days of history, so a run stays at ≤ 42 subrequests.
+**Consequences:** Cheap or expensive requires a deviation larger than both the minimum öre/kWh difference (20) and a percentage of the average (20 %), chosen on real data: 50 öre made SE1/SE2 100 % "normal", percent alone made SE1 63 % "expensive". All three values come from configuration, so you can tune them by editing `wrangler.jsonc` and redeploying. This one function feeds the status endpoint, the frontend colors and, later, price notifications, so the definition exists in exactly one place. Thresholds are constants in one file. The window is capped at 72 h and price ingestion keeps `ceil(window / 24)` days of history, so a run stays at ≤ 42 subrequests.
 
 **Verify:** unit tests on hand-built series (flat day, evening peak, zero and negative prices, too little history); review the classification of real recorded days with you before moving on.
 

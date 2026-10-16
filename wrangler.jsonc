@@ -13,7 +13,7 @@
   ],
   "vars": {
     // Price classification, see README "Configuration". Change here and redeploy.
-    "MIN_PRICE_DIFF_ORE_PER_KWH": 50,
+    "MIN_PRICE_DIFF_ORE_PER_KWH": 20,
     "PRICE_DIFF_PERCENT": 20,
     "AVERAGE_WINDOW_HOURS": 48
   },

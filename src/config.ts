@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const configSchema = z.object({
   /** Minimum difference from the recent average, in öre/kWh, for a price to count as cheap or expensive. */
-  MIN_PRICE_DIFF_ORE_PER_KWH: z.coerce.number().min(0).default(50),
+  MIN_PRICE_DIFF_ORE_PER_KWH: z.coerce.number().min(0).default(20),
   /** Minimum difference from the recent average, in percent of it, for a price to count as cheap or expensive. */
   PRICE_DIFF_PERCENT: z.coerce.number().min(0).default(20),
   /** Length of the trailing window that "recent average" refers to. Capped so price ingestion stays within limits. */

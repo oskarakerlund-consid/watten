@@ -3,7 +3,7 @@ import { parseConfig } from "./config";
 
 describe("parseConfig", () => {
   it("uses defaults when vars are missing", () => {
-    expect(parseConfig({})).toEqual({ minPriceDiffSekPerKwh: 0.5, priceDiffPercent: 20, averageWindowHours: 48 });
+    expect(parseConfig({})).toEqual({ minPriceDiffSekPerKwh: 0.2, priceDiffPercent: 20, averageWindowHours: 48 });
   });
 
   it("converts öre to SEK and accepts numbers given as strings", () => {
