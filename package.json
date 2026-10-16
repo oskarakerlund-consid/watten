@@ -10,12 +10,14 @@
     "url": "git@github_consid:oskarakerlund-consid/watten.git"
   },
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "npm run build:web && wrangler dev",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:web": "vite build --config web/vite.config.ts",
+    "deploy": "npm run build:web && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "vitest run --config vitest.live.config.ts --reporter=verbose",
-    "typecheck": "wrangler types && tsc --noEmit",
+    "typecheck": "wrangler types && tsc --noEmit && svelte-check --tsconfig web/tsconfig.json",
     "cf-typegen": "wrangler types",
     "db:migrate:local": "wrangler d1 migrations apply watten --local"
   },
@@ -26,7 +28,11 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.4",
-    "typescript": "^7.0.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.7",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
     "vitest": "^5.0.5",
     "wrangler": "^4.151.1"
   },

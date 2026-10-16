@@ -16,5 +16,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "test/**/*.json", "scripts/**/*.ts", "web/src/lib/**/*.ts", "web/src/lib/**/*.json", "worker-configuration.d.ts", "vitest.config.ts", "vitest.live.config.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "test/**/*.json", "scripts/**/*.ts", "worker-configuration.d.ts", "vitest.config.ts", "vitest.live.config.ts"]
 }

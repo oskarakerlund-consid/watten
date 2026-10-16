@@ -3,6 +3,12 @@
   "name": "watten",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
+  "assets": {
+    // The Svelte app, built by `npm run build:web`. Served as free static assets; only /api/* runs the Worker.
+    "directory": "web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
   "d1_databases": [
     {
       "binding": "DB",

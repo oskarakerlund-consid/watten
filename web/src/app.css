@@ -1,0 +1,32 @@
+:root {
+  --cheap-bg: #1b6e3a;
+  --cheap-fg: #ffffff;
+  --normal-bg: #f2e7c4;
+  --normal-fg: #1f1f1f;
+  --expensive-bg: #a4262c;
+  --expensive-fg: #ffffff;
+  --unknown-bg: #e4e4e4;
+  --unknown-fg: #1f1f1f;
+  --card-bg: rgb(255 255 255 / 0.16);
+  --card-border: rgb(0 0 0 / 0.12);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.35;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--unknown-bg);
+}
+
+button,
+select {
+  font: inherit;
+}
