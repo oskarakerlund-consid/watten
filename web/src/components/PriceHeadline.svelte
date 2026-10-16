@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { PriceStatus, Result } from "../lib/api";
+  import type { PriceStatusResponse, Result } from "../lib/api";
   import { formatPrice } from "../lib/format";
 
-  let { status }: { status: Result<PriceStatus> | null } = $props();
+  let { status }: { status: Result<PriceStatusResponse> | null } = $props();
 
   const LABELS = {
     cheap: { symbol: "↓", text: "Billigt just nu" },

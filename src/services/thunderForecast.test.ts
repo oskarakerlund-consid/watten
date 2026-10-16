@@ -82,6 +82,25 @@ describe("getThunderForecast", () => {
     expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(later + 10 * 60_000);
   });
 
+  it("does not treat a database error as a MET failure", async () => {
+    await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
+    const failingWrites = new Proxy(env.DB, {
+      get: (db, key) =>
+        key === "prepare"
+          ? (sql: string) => {
+              if (sql.trimStart().startsWith("INSERT")) throw new Error("D1 write failed");
+              return db.prepare(sql);
+            }
+          : Reflect.get(db, key),
+    });
+
+    const later = NOW + 31 * 60_000;
+    await expect(
+      getThunderForecast(failingWrites, fakeMet(ok(40, later + 30 * 60_000)).fetcher, UA, LAT, LON, later),
+    ).rejects.toThrow("D1 write failed");
+    expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(NOW + 30 * 60_000);
+  });
+
   it("throws when MET fails and nothing is cached", async () => {
     await expect(
       getThunderForecast(env.DB, fakeMet(() => new Response("", { status: 503 })).fetcher, UA, LAT, LON, NOW),

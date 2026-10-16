@@ -4,7 +4,7 @@ import { loadIntervals } from "../db/prices";
 import { stockholmDayBounds } from "../domain/time";
 import { dayPricesUrl } from "../integrations/elprisetjustnu";
 import type { HttpFetcher } from "../integrations/http";
-import { historyDaysFor, ingestPrices } from "./ingestPrices";
+import { daysToKeep, historyDaysFor, ingestPrices, missingDays } from "./ingestPrices";
 
 // 2026-10-16 12:00 Swedish time. History starts 2026-10-14, tomorrow is 2026-10-17.
 const NOW = Date.UTC(2026, 9, 16, 10);
@@ -115,8 +115,43 @@ describe("ingestPrices", () => {
     const failing: HttpFetcher = async (url) =>
       url.includes("_SE2") ? new Response("down", { status: 503 }) : api.fetcher(url);
 
-    await expect(ingestPrices(env.DB, failing, NOW, 2)).rejects.toThrow("failed for 4 zone/day(s)");
+    await expect(ingestPrices(env.DB, failing, NOW, 2)).rejects.toThrow("failed with 4 error(s)");
     expect(await countByZone()).toEqual(["SE1", "SE3", "SE4"].map((zone) => ({ zone, n: 4 * 96 })));
+  });
+
+  it("keeps fetch errors when storing fails too", async () => {
+    const api = fakeApi(DAYS);
+    const failing: HttpFetcher = async (url) =>
+      url.includes("_SE2") ? new Response("down", { status: 503 }) : api.fetcher(url);
+    const failingBatch = new Proxy(env.DB, {
+      get: (db, key) => (key === "batch" ? () => Promise.reject(new Error("D1 batch failed")) : Reflect.get(db, key)),
+    });
+
+    const error = await ingestPrices(failingBatch, failing, NOW, 2).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AggregateError);
+    expect((error as AggregateError).errors).toHaveLength(5);
+    expect((error as AggregateError).errors.at(-1)).toMatchObject({ message: "Failed to store prices" });
+  });
+});
+
+describe("daysToKeep", () => {
+  it("returns the history days, today and tomorrow, oldest first", () => {
+    expect(daysToKeep(DAYS[2]!, 2)).toEqual(DAYS);
+  });
+});
+
+describe("missingDays", () => {
+  it("lists zone/days that are not fully covered", () => {
+    const { start, end } = stockholmDayBounds(DAYS[2]!);
+    const existing = [
+      { zone: "SE1" as const, start, end, sekPerKwh: 1 },
+      { zone: "SE2" as const, start, end: end - 15 * 60_000, sekPerKwh: 1 },
+    ];
+    expect(missingDays(existing, [DAYS[2]!])).toEqual([
+      { zone: "SE2", date: DAYS[2] },
+      { zone: "SE3", date: DAYS[2] },
+      { zone: "SE4", date: DAYS[2] },
+    ]);
   });
 });
 

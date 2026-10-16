@@ -21,7 +21,7 @@ const isoOrNull = (instant: number | null) => (instant === null ? null : new Dat
 const localOrNull = (instant: number | null) => (instant === null ? null : toStockholmIso(instant));
 
 export const thunderRoute = new Hono<AppEnv>().get("/", validQuery(querySchema), async (c) => {
-  const { lat, lon, hours } = c.req.valid("query");
+  const { lat, lon, hours: hoursAhead } = c.req.valid("query");
   const now = c.get("now");
   const config = parseConfig(c.env);
 
@@ -33,13 +33,13 @@ export const thunderRoute = new Hono<AppEnv>().get("/", validQuery(querySchema),
     return c.json({ error: "The weather forecast is not available right now" }, 503);
   }
 
-  const assessment = assessThunder(forecast.hours, now, hours, config.thunderProbabilityPercent);
-  if (!assessment) return c.json({ error: `The forecast does not cover the next ${hours} hours` }, 503);
+  const assessment = assessThunder(forecast.hours, now, hoursAhead, config.thunderProbabilityPercent);
+  if (!assessment) return c.json({ error: `The forecast does not cover the next ${hoursAhead} hours` }, 503);
 
   return c.json({
     lat,
     lon,
-    hours,
+    hours: hoursAhead,
     thresholdPercent: config.thunderProbabilityPercent,
     expected: assessment.expected,
     start: isoOrNull(assessment.start),

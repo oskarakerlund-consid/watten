@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { CheapestWindow, Result } from "../lib/api";
+  import type { CheapestResponse, Result } from "../lib/api";
   import { formatPrice, formatSpan } from "../lib/format";
   import Card from "./Card.svelte";
 
-  let { cheapest, intervalHours, periodHours }: { cheapest: Result<CheapestWindow> | null; intervalHours: number; periodHours: number } =
+  let { cheapest, intervalHours, periodHours }: { cheapest: Result<CheapestResponse> | null; intervalHours: number; periodHours: number } =
     $props();
 </script>
 

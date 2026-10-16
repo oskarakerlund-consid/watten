@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Result, ThunderForecast } from "../lib/api";
+  import type { Result, ThunderResponse } from "../lib/api";
   import { formatSpan } from "../lib/format";
   import Card from "./Card.svelte";
 
@@ -8,7 +8,7 @@
     hours,
     usingPosition,
     city,
-  }: { thunder: Result<ThunderForecast> | null; hours: number; usingPosition: boolean; city: string } = $props();
+  }: { thunder: Result<ThunderResponse> | null; hours: number; usingPosition: boolean; city: string } = $props();
 </script>
 
 <Card title={`Åska närmaste ${hours} h`}>
