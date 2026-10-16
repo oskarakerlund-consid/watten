@@ -1,0 +1,33 @@
+{
+  "name": "watten",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serverless service on Cloudflare that tracks Swedish electricity prices and thunderstorm forecasts.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git@github_consid:oskarakerlund-consid/watten.git"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "wrangler types && tsc --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261012.1": true
+  }
+}
