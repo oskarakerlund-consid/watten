@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import stockholm from "../../test/fixtures/metno/2026-10-16_stockholm_complete.json";
-import { fetchThunderForecast, forecastUrl, type HttpFetcher } from "./metno";
+import type { HttpFetcher } from "./http";
+import { fetchThunderForecast, forecastUrl } from "./metno";
 
 const NOW = Date.UTC(2026, 9, 16, 17);
 const UA = "watten-test/1.0 (https://example.com)";
@@ -40,7 +41,7 @@ describe("fetchThunderForecast", () => {
     const seen: Headers[] = [];
     await fetchThunderForecast(
       async (_url, init) => {
-        seen.push(new Headers(init.headers));
+        seen.push(new Headers(init?.headers));
         return new Response(null, { status: 304 });
       },
       UA,

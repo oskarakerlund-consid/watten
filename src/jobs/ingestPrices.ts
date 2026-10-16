@@ -2,7 +2,8 @@ import { deleteIntervalsBefore, loadIntervals, upsertIntervalsStatement } from "
 import { averagePrice } from "../domain/prices";
 import { addDays, stockholmDate, stockholmDayBounds, stockholmStartOfDay } from "../domain/time";
 import { type LocalDate, ZONES, type Zone } from "../domain/types";
-import { type Fetcher, fetchDayPrices } from "../integrations/elprisetjustnu";
+import { fetchDayPrices } from "../integrations/elprisetjustnu";
+import type { HttpFetcher } from "../integrations/http";
 
 export interface IngestResult {
   /** Zone/day pairs that were fetched and stored. */
@@ -26,7 +27,7 @@ export function historyDaysFor(hours: number): number {
  */
 export async function ingestPrices(
   db: D1Database,
-  fetcher: Fetcher,
+  fetcher: HttpFetcher,
   now: number,
   historyDays: number,
 ): Promise<IngestResult> {

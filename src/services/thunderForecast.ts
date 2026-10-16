@@ -1,6 +1,7 @@
 import { type CachedForecast, extendForecast, loadForecast, saveForecast } from "../db/forecastCache";
 import type { ThunderHour } from "../domain/thunder";
-import { fetchThunderForecast, type HttpFetcher } from "../integrations/metno";
+import type { HttpFetcher } from "../integrations/http";
+import { fetchThunderForecast } from "../integrations/metno";
 
 /** How long to wait before asking MET again after a failed request, when an older forecast can be served. */
 const RETRY_AFTER_ERROR_MS = 10 * 60_000;

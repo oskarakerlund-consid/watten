@@ -5,10 +5,11 @@ import springForwardDay from "../../test/fixtures/elprisetjustnu/2026-03-29_SE3.
 import normalDay from "../../test/fixtures/elprisetjustnu/2026-10-15_SE3.json";
 import { stockholmDayBounds } from "../domain/time";
 import type { LocalDate } from "../domain/types";
-import { dayPricesUrl, type Fetcher, fetchDayPrices } from "./elprisetjustnu";
+import { dayPricesUrl, fetchDayPrices } from "./elprisetjustnu";
+import type { HttpFetcher } from "./http";
 
 const respondWith =
-  (body: unknown, status = 200): Fetcher =>
+  (body: unknown, status = 200): HttpFetcher =>
   async () =>
     new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
 

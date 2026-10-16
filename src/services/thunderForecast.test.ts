@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadForecast, saveForecast } from "../db/forecastCache";
-import type { HttpFetcher } from "../integrations/metno";
+import type { HttpFetcher } from "../integrations/http";
 import { getThunderForecast } from "./thunderForecast";
 
 const NOW = Date.UTC(2026, 9, 16, 17);
@@ -19,7 +19,7 @@ const metBody = (probability: number) => ({
 function fakeMet(...responses: (() => Response)[]) {
   const requests: Headers[] = [];
   const fetcher: HttpFetcher = async (_url, init) => {
-    requests.push(new Headers(init.headers));
+    requests.push(new Headers(init?.headers));
     const next = responses.shift();
     if (!next) throw new Error("unexpected request");
     return next();

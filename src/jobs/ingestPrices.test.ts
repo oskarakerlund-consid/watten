@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadIntervals } from "../db/prices";
 import { stockholmDayBounds } from "../domain/time";
-import { dayPricesUrl, type Fetcher } from "../integrations/elprisetjustnu";
+import { dayPricesUrl } from "../integrations/elprisetjustnu";
+import type { HttpFetcher } from "../integrations/http";
 import { historyDaysFor, ingestPrices } from "./ingestPrices";
 
 // 2026-10-16 12:00 Swedish time. History starts 2026-10-14, tomorrow is 2026-10-17.
@@ -37,7 +38,7 @@ function fakeApi(published: (typeof DAYS)[number][]) {
   for (const zone of ["SE1", "SE2", "SE3", "SE4"] as const) {
     published.forEach((date, i) => responses.set(dayPricesUrl(zone, date), apiDay(date, i + 1)));
   }
-  const fetcher: Fetcher = async (url) => {
+  const fetcher: HttpFetcher = async (url) => {
     requested.push(url);
     const body = responses.get(url);
     return body ? new Response(JSON.stringify(body)) : new Response("not found", { status: 404 });
@@ -111,7 +112,7 @@ describe("ingestPrices", () => {
 
   it("stores what it can and throws when some fetches fail", async () => {
     const api = fakeApi(DAYS);
-    const failing: Fetcher = async (url) =>
+    const failing: HttpFetcher = async (url) =>
       url.includes("_SE2") ? new Response("down", { status: 503 }) : api.fetcher(url);
 
     await expect(ingestPrices(env.DB, failing, NOW, 2)).rejects.toThrow("failed for 4 zone/day(s)");

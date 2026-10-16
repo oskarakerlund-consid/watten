@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
-import type { HttpFetcher } from "../integrations/metno";
+import type { HttpFetcher } from "../integrations/http";
 
 // 2026-07-15 14:00 Swedish summer time.
 const NOW = Date.UTC(2026, 6, 15, 12);
