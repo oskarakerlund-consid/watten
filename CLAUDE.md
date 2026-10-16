@@ -38,7 +38,7 @@ The frontend must never contain secrets and gets all data from the API.
 
 Decided:
 
-- **TypeScript** – type safety and good developer experience.
+- **TypeScript 6** – type safety and good developer experience. **Do not upgrade to TypeScript 7** (or suggest it) until `svelte-check` supports it: `svelte-check` 4.x only supports TypeScript 5–6 and crashed with TypeScript 7.0 when tested on 2026-10-16, which would leave the `.svelte` files without type checking. Before upgrading, verify `svelte-check`'s `typescript` peer dependency and that `npm run typecheck` passes.
 - **Cloudflare Workers** – serverless execution of API and business logic.
 - **Hono** – API routing.
 - **Cloudflare D1** – persistent storage when needed (e.g. push subscriptions).

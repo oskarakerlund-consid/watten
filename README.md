@@ -151,7 +151,14 @@ Tunable values are Worker vars in `wrangler.jsonc`. They are validated in `src/c
 
 ## Deployment
 
-_To be documented._
+Requires a free Cloudflare account and `npx wrangler login`.
+
+1. Create the database once: `npx wrangler d1 create watten`, and put the returned `database_id` in `wrangler.jsonc` (the ID is not a secret).
+2. Apply the schema: `npx wrangler d1 migrations apply watten --remote`. Run it again whenever a new file is added to `migrations/`.
+3. Deploy: `npm run deploy` (builds the frontend, then runs `wrangler deploy`). The first deploy may ask you to register a `workers.dev` subdomain; the app is then served on `https://watten.<subdomain>.workers.dev`.
+4. Cron Trigger changes can take up to 15 minutes to take effect. The first price ingestion runs at the next quarter-hour between 11:00 and 14:59 UTC; until then `/api/status` answers `503`.
+
+Configuration lives in `wrangler.jsonc` (see [Configuration](#configuration)); values edited in the Cloudflare dashboard are overwritten by the next deploy.
 
 ## Privacy
 
