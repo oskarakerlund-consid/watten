@@ -4,7 +4,7 @@ Status: **draft v3, awaiting review. Nothing is implemented yet.**
 
 This is a living document. `CLAUDE.md` holds the fixed decisions, requirements and rules; this file holds the order of work. Tick off steps as they are finished and update the plan when decisions change.
 
-Each step is small, independently verifiable and (unless noted) leaves the repo in a working state. **Every step also updates `README.md`** for what it adds (the repo is public); a step is not done until the README matches the code. Work happens on a feature branch with conventional commits; nothing is committed to `main` without asking, and nothing is deployed by the agent.
+Each step is small, independently verifiable and (unless noted) leaves the repo in a working state. **Every step also updates `README.md`** for what it adds (the repo is public); a step is not done until the README matches the code. Every step also has a **manual check** you can run yourself to see the result. Work happens on a feature branch with conventional commits; nothing is committed to `main` without asking, and nothing is deployed by the agent.
 
 ## Verified platform facts
 
@@ -59,7 +59,7 @@ Options:
 Nothing is installed until you approve the list for the step that needs it.
 
 - Step 1 (installed): `typescript`, `wrangler`, `hono`, `vitest`, `@cloudflare/vitest-plugin` (successor of the deprecated `@cloudflare/vitest-pool-workers`)
-- Step 3: `zod`
+- Step 3 (installed): `zod`
 - Step 6: `@hono/zod-validator`
 - Step 9: `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`
 - Step 11: Web Push library (D4), if not hand-rolled
@@ -130,6 +130,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** `npm run typecheck` and `npm test` pass; `npx wrangler dev` then `curl localhost:8787/api/health` returns 200.
 
+**Manual check (you):** `npm run dev`, open <http://localhost:8787/api/health> → `{"status":"ok"}`.
+
 ### Step 2 – Time and price domain (pure logic) ✅
 
 **Goal:** correct handling of 15-minute (and older hourly) intervals and the Swedish time zone/DST. No network, no DB.
@@ -140,15 +142,19 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** unit tests incl. spring-forward and fall-back days, window search with ties and with fewer known intervals than requested.
 
-### Step 3 – Elpriset just nu integration
+**Manual check (you):** `npm test -- --reporter=verbose` → every time and price test listed as passing, including the DST days.
+
+### Step 3 – Elpriset just nu integration ✅
 
 **Goal:** fetch and validate one day of prices for one zone.
 
-**Files:** `src/integrations/elprisetjustnu.ts` (URL building, fetch, Zod schema, mapping to domain types), `src/integrations/elprisetjustnu.test.ts`, `test/fixtures/` (recorded real responses: normal day and DST day).
+**Files:** `src/integrations/elprisetjustnu.ts` (URL building, fetch, Zod schema, mapping to domain types), `src/integrations/elprisetjustnu.test.ts`, `test/fixtures/elprisetjustnu/` (recorded real SE3 responses: a normal day, both DST change days and an hourly day from before 2025-10-01), `tsconfig.json` (`resolveJsonModule` for fixtures).
 
-**Consequences:** Adds `zod`. A 404 (tomorrow not published yet) is a typed "not available" result, not an exception. The client takes `fetch` as a parameter so tests need no network.
+**Consequences:** Adds `zod`. A 404 (tomorrow not published yet) is a typed "not available" result, not an exception. The fixtures revealed an upstream bug on the fall-back day (one interval ends an hour too late), handled by capping each interval at the next start. The client takes `fetch` as a parameter so tests need no network.
 
-**Verify:** tests against fixtures; one manual real call from `wrangler dev` to confirm the live shape matches the fixture (96 entries on a normal day).
+**Verify:** tests against fixtures; `npm run test:live` confirms the live shape matches the fixtures (96 entries on a normal day). Live checks live in `test/live/`, use `vitest.live.config.ts` and are excluded from `npm test`, so normal tests never need network.
+
+**Manual check (you):** `npm run test:live` → a table with today's and tomorrow's prices for SE1–SE4: 96 intervals per day (92/100 on DST days), min and max SEK/kWh. Before 13:00, tomorrow shows "not published yet".
 
 ### Step 4 – D1 storage and price ingestion (cron)
 
@@ -160,6 +166,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** `npx wrangler d1 migrations apply watten --local`; trigger `curl "localhost:8787/cdn-cgi/local/scheduled?cron=..."`; inspect with `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"`. Job tests with a fake fetcher and D1 via `@cloudflare/vitest-plugin`.
 
+**Manual check (you):** `npx wrangler d1 migrations apply watten --local`, `npm run dev`, then in another terminal `curl "localhost:8787/cdn-cgi/local/scheduled?cron=…"` and `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"` → four zones with rows for the backfilled days, today and (after 13:00) tomorrow.
+
 ### Step 5 – Price classification
 
 **Goal:** turn price data into `cheap` / `normal` / `expensive` for "now → +60 min", relative to the average of the last 48 hours.
@@ -169,6 +177,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 **Consequences:** Cheap or expensive requires a deviation larger than both the minimum öre/kWh difference (initially 50) and a percentage threshold chosen here on real data. All three values come from configuration, so you can tune them by editing `wrangler.jsonc` and redeploying. This one function feeds the status endpoint, the frontend colors and, later, price notifications, so the definition exists in exactly one place. Thresholds are constants in one file.
 
 **Verify:** unit tests on hand-built series (flat day, evening peak, zero and negative prices, too little history); review the classification of real recorded days with you before moving on.
+
+**Manual check (you):** `npm run test:live` additionally prints the current classification (cheap/normal/expensive), the 48 h average and the price now → +60 min for each zone, so you can judge whether the thresholds feel right.
 
 ### Step 6 – Price API
 
@@ -180,6 +190,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** route tests via `app.request()` with seeded D1 (including bounds and missing-data cases); `curl` against `wrangler dev`.
 
+**Manual check (you):** With `npm run dev` running, open <http://localhost:8787/api/status?zone=SE3> and <http://localhost:8787/api/cheapest?zone=SE3&interval=2&period=8> → real JSON. Try `zone=SE9` or `interval=99` → 400 with a clear message.
+
 ### Step 7 – MET Norway integration
 
 **Goal:** fetch, validate and cache the forecast for a coordinate.
@@ -190,6 +202,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** fixture tests; manual calls from `wrangler dev` for three Swedish locations; a second call proves conditional requests and caching work.
 
+**Manual check (you):** `npm run test:live` additionally prints, for three Swedish locations, whether `probability_of_thunder` is present, the forecast horizon in hours and the highest thunder probability ahead.
+
 ### Step 8 – Thunder API
 
 **Goal:** `GET /api/thunder` as specified above.
@@ -199,6 +213,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 **Consequences:** Settles D8 (location input) and the "expected thunderstorm" threshold, which is a tunable constant you approve. The endpoint accepts arbitrary coordinates and triggers upstream calls on cache misses, so coordinates are validated to lie within Sweden, rounded, and served from the D1 cache; this protects MET's servers and our subrequest budget from abuse. Returns a clear "no data" state when MET is unavailable instead of "no thunder".
 
 **Verify:** unit tests on forecast fixtures with and without thunder (including thunder starting inside and outside the window); route tests for bounds (outside Sweden, `hours` too large); `curl` against `wrangler dev` with real data.
+
+**Manual check (you):** With `npm run dev` running, open <http://localhost:8787/api/thunder?lat=59.33&lon=18.07&hours=8> → thunder yes/no and approximate time. Try a position outside Sweden or `hours=48` → 400.
 
 ### Step 9 – Svelte frontend (overview screen)
 
@@ -219,6 +235,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** `npm run build`; `npx wrangler dev` serves SPA and API on one origin; check all three states and the thunder yes/no/unknown cases with seeded data; manually confirm no scrolling at 360×640 and 320×568 and landscape; Svelte typecheck.
 
+**Manual check (you):** `npm run dev`, open <http://localhost:8787> in a Windows browser. Press "use my location", change zone, reload the position. Use DevTools device mode at 360×640 to confirm nothing scrolls.
+
 ### Step 10 – First deploy
 
 **Goal:** the service runs on Cloudflare and ingests real prices on its own.
@@ -228,6 +246,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 **Consequences:** You run the deploy and remote migrations; the agent does not. Public URL on `workers.dev`. Cron changes can take up to 15 min to take effect. Confirms D6 against real limits in the dashboard.
 
 **Verify:** after the first 13:00 window, `/api/status?zone=SE3` serves data and the frontend works on your phone; check Workers and D1 usage in the dashboard against the free-tier numbers above.
+
+**Manual check (you):** Open `https://watten.<your-subdomain>.workers.dev` on your phone; check Workers and D1 usage in the Cloudflare dashboard.
 
 ### Step 11 – Web Push: subscribe/unsubscribe (spike and UI)
 
@@ -239,6 +259,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** subscribe in desktop Chrome on `localhost`, send a test push, receive it; unsubscribe and confirm the row is gone and a further send is not attempted; repeat on a phone against the deployed URL (step 10). Record CPU time per send. This step can be moved earlier (right after step 1) if you'd rather settle the biggest risk first.
 
+**Manual check (you):** Open the push form, enable notifications, receive a test push; disable and confirm that no further push arrives.
+
 ### Step 12 – Notifications (price and thunder)
 
 **Goal:** push notifications ahead of unusually high or low price periods and ahead of expected thunder.
@@ -249,6 +271,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** unit tests on alert decisions (DST days, duplicate suppression, multiple zones/locations); local run with a fake push sender; one real end-to-end price and thunder notification to your device.
 
+**Manual check (you):** Trigger the alert job locally (`curl "localhost:8787/cdn-cgi/local/scheduled?cron=…"`) with a forced price/thunder situation and receive the notification; later, a real one on your phone.
+
 ### Step 13 – Hardening and handover
 
 **Goal:** make the service safe to leave running.
@@ -258,6 +282,8 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 **Consequences:** Defines behaviour when upstream sources are down (serve last known data, mark it stale in API and UI). Reviews free-tier headroom with real usage. Any rate limiting that needs a new Cloudflare product is brought to you first.
 
 **Verify:** simulate upstream failure locally; review the dashboard after a week of running.
+
+**Manual check (you):** Stop network access for upstreams locally (e.g. a wrong base URL in `.dev.vars`) and confirm the UI marks data as stale instead of failing.
 
 ## Risks, highest first
 
