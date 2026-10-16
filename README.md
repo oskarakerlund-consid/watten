@@ -48,7 +48,7 @@ Everything runs on Cloudflare's free tier:
 
 - A single **Cloudflare Worker** written in TypeScript, with [Hono](https://hono.dev/) for API routing.
 - **Cloudflare D1** caches thunder forecasts per rounded position and stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
-- A **Cron Trigger** (`*/15 11-14 * * *`, UTC) runs the price ingestion every 15 minutes around 13:00 Swedish time, when tomorrow's prices are published. Each run fetches only days that are missing or incomplete, so once tomorrow's prices are stored, the remaining runs that day do nothing.
+- A **Cron Trigger** (`*/15 * * * *`) runs the price ingestion every 15 minutes. Each run fetches only days that are missing or incomplete, so most runs just read D1 and do nothing; tomorrow's prices are picked up within 15 minutes of being published (from 13:00 Swedish time), and a new deployment has prices within 15 minutes.
 - A **Svelte 5 SPA** (`web/`, built with Vite) is served as Workers static assets by the same Worker: one deploy, one origin, no CORS. Only `/api/*` runs the Worker; all other requests are free static-asset requests, and unknown paths return the app.
 - _Planned:_ scheduled weather checks and Web Push with VAPID.
 
@@ -111,7 +111,7 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | --- | --- |
 | 50 subrequests (fetches and D1 queries) per invocation | Price ingestion uses at most 34: one read, up to 16 fetches, up to 16 writes (one SQL statement per zone and day, with the rows passed as one JSON parameter) and one delete. |
 | D1: 100,000 rows written per day | About 400 price rows per day (4 zones × 96 quarter-hours), plus a one-off backfill of about 1,500 rows. |
-| D1: 5,000,000 rows read per day | Each ingestion run reads at most ~1,600 rows, 16 runs per day. |
+| D1: 5,000,000 rows read per day | Each ingestion run reads about 3,200 rows (stored prices plus the scan for old rows), 96 runs per day: about 300,000 rows. API calls read about 200 rows each. |
 | 5 Cron Triggers per account | One trigger so far. |
 | 100,000 Worker requests per day | Static assets (the app itself) are free and unlimited; only `/api/*` counts. The page makes three API calls per refresh, every 5 minutes while open, and responses may be cached by the browser for 60 seconds. |
 
@@ -156,7 +156,7 @@ Requires a free Cloudflare account and `npx wrangler login`.
 1. Create the database once: `npx wrangler d1 create watten`, and put the returned `database_id` in `wrangler.jsonc` (the ID is not a secret).
 2. Apply the schema: `npx wrangler d1 migrations apply watten --remote`. Run it again whenever a new file is added to `migrations/`.
 3. Deploy: `npm run deploy` (builds the frontend, then runs `wrangler deploy`). The first deploy may ask you to register a `workers.dev` subdomain; the app is then served on `https://watten.<subdomain>.workers.dev`.
-4. Cron Trigger changes can take up to 15 minutes to take effect. The first price ingestion runs at the next quarter-hour between 11:00 and 14:59 UTC; until then `/api/status` answers `503`.
+4. Cron Trigger changes can take up to 15 minutes to take effect. The first price ingestion runs at the next quarter-hour after that; until then `/api/status` answers `503`.
 
 Configuration lives in `wrangler.jsonc` (see [Configuration](#configuration)); values edited in the Cloudflare dashboard are overwritten by the next deploy.
 

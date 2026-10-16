@@ -28,7 +28,7 @@
     "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)"
   },
   "triggers": {
-    // UTC. Covers 13:00 Swedish time (when tomorrow's prices are published) in both winter and summer time.
-    "crons": ["*/15 11-14 * * *"]
+    // Every 15 minutes, around the clock. A run only fetches missing days, so most runs do one D1 read.
+    "crons": ["*/15 * * * *"]
   }
 }
