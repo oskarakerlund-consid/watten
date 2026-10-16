@@ -59,7 +59,7 @@ Options:
 Nothing is installed until you approve the list for the step that needs it.
 
 - Step 1 (installed): `typescript`, `wrangler`, `hono`, `vitest`, `@cloudflare/vitest-plugin` (successor of the deprecated `@cloudflare/vitest-pool-workers`)
-- Step 3: `zod`
+- Step 3 (installed): `zod`
 - Step 6: `@hono/zod-validator`
 - Step 9: `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`
 - Step 11: Web Push library (D4), if not hand-rolled
@@ -140,13 +140,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** unit tests incl. spring-forward and fall-back days, window search with ties and with fewer known intervals than requested.
 
-### Step 3 – Elpriset just nu integration
+### Step 3 – Elpriset just nu integration ✅
 
 **Goal:** fetch and validate one day of prices for one zone.
 
-**Files:** `src/integrations/elprisetjustnu.ts` (URL building, fetch, Zod schema, mapping to domain types), `src/integrations/elprisetjustnu.test.ts`, `test/fixtures/` (recorded real responses: normal day and DST day).
+**Files:** `src/integrations/elprisetjustnu.ts` (URL building, fetch, Zod schema, mapping to domain types), `src/integrations/elprisetjustnu.test.ts`, `test/fixtures/elprisetjustnu/` (recorded real SE3 responses: a normal day, both DST change days and an hourly day from before 2025-10-01), `tsconfig.json` (`resolveJsonModule` for fixtures).
 
-**Consequences:** Adds `zod`. A 404 (tomorrow not published yet) is a typed "not available" result, not an exception. The client takes `fetch` as a parameter so tests need no network.
+**Consequences:** Adds `zod`. A 404 (tomorrow not published yet) is a typed "not available" result, not an exception. The fixtures revealed an upstream bug on the fall-back day (one interval ends an hour too late), handled by capping each interval at the next start. The client takes `fetch` as a parameter so tests need no network.
 
 **Verify:** tests against fixtures; one manual real call from `wrangler dev` to confirm the live shape matches the fixture (96 entries on a normal day).
 

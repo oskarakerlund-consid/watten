@@ -33,23 +33,22 @@ Code layout under `src/`:
 | `src/index.ts` | Worker entry point and route mounting. |
 | `src/routes/` | _Planned:_ HTTP routes (Hono). |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search. |
-| `src/integrations/` | _Planned:_ calls to external data sources. |
+| `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
 | `src/db/` | _Planned:_ D1 access. |
 
 ## Third-party data and dependencies
 
 ### Data sources
 
-_Planned, not used yet:_
-
-- [Elpriset just nu](https://www.elprisetjustnu.se/elpris-api) – electricity prices.
-- [MET Norway](https://api.met.no/) – weather forecasts (CC BY 4.0).
+- [Elpriset just nu](https://www.elprisetjustnu.se/elpris-api) – electricity prices per price area, free and without API key. Prices exclude VAT, surcharges and taxes. The client is implemented (`src/integrations/elprisetjustnu.ts`) but not yet scheduled. On the day summer time ends, the API reports one interval with a wrong end time; the client caps every interval at the start of the next one. Recorded responses used in tests live in `test/fixtures/elprisetjustnu/`.
+- _Planned:_ [MET Norway](https://api.met.no/) – weather forecasts (CC BY 4.0).
 
 ### Dependencies
 
 | Package | Kind | Why | License |
 | --- | --- | --- | --- |
 | [`hono`](https://github.com/honojs/hono) | runtime | API routing in the Worker | MIT |
+| [`zod`](https://github.com/colinhacks/zod) | runtime | Validation of external data and request parameters | MIT |
 | [`wrangler`](https://github.com/cloudflare/workers-sdk) | dev | Local development, type generation and deployment | MIT OR Apache-2.0 |
 | [`typescript`](https://github.com/microsoft/TypeScript) | dev | Type checking | Apache-2.0 |
 | [`vitest`](https://github.com/vitest-dev/vitest) | dev | Test runner | MIT |

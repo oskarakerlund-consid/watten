@@ -56,7 +56,7 @@ Goal: keep running costs at 0 SEK within Cloudflare's free tiers, as far as poss
 Data sources:
 
 - **Weather:** MET Norway (api.met.no). Requires an identifying `User-Agent`, caching per `Expires`/`If-Modified-Since`, coordinates truncated to 4 decimals, and CC BY 4.0 attribution.
-- **Electricity prices:** Elpriset just nu (elprisetjustnu.se/elpris-api). Free, no API key. One request per day and price area: `/api/v1/prices/{YYYY}/{MM}-{DD}_{SE1..SE4}.json`. Fields: `SEK_per_kWh`, `EUR_per_kWh`, `EXR`, `time_start`, `time_end`. Prices are 15-minute intervals from 2025-10-01 (aggregate to hours when hourly values are needed) and exclude VAT, surcharges and taxes. Next-day prices are published no earlier than 13:00 on the day before. Attribution is requested when shown publicly. No documented rate limit; cache responses.
+- **Electricity prices:** Elpriset just nu (elprisetjustnu.se/elpris-api). Free, no API key. One request per day and price area: `/api/v1/prices/{YYYY}/{MM}-{DD}_{SE1..SE4}.json`. Fields: `SEK_per_kWh`, `EUR_per_kWh`, `EXR`, `time_start`, `time_end`. Prices are 15-minute intervals from 2025-10-01 (aggregate to hours when hourly values are needed) and exclude VAT, surcharges and taxes. Next-day prices are published no earlier than 13:00 on the day before. Attribution is requested when shown publicly. No documented rate limit; cache responses. Returns HTTP 404 when a day is not published yet. Known quirk: on the day summer time ends, the 02:45 interval has a wrong `time_end` (`03:00+01:00`); the client caps each interval's end at the next interval's start.
 
 Anything not listed here is **not yet decided**. Do not assume any particular choice; ask first.
 
