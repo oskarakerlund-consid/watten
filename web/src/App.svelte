@@ -1,10 +1,9 @@
 <script lang="ts">
   import { fetchCheapest, fetchStatus, fetchThunder, type CheapestWindow, type PriceStatus, type Result, type ThunderForecast } from "./lib/api";
-  import { locate } from "./lib/geolocation";
+  import { locate, toLocationUpdate } from "./lib/geolocation";
   import { loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
-  import { guessZone } from "./lib/zones/guessZone";
   import zoneData from "./lib/zones/zones.json";
-  import { isZone, ZONE_INFO, type Zone } from "./lib/zones";
+  import { ZONE_INFO, type Zone } from "./lib/zones";
   import PriceHeadline from "./components/PriceHeadline.svelte";
   import CheapestCard from "./components/CheapestCard.svelte";
   import ThunderCard from "./components/ThunderCard.svelte";
@@ -39,20 +38,14 @@
 
   async function useMyLocation() {
     locating = true;
-    const result = await locate();
+    const update = toLocationUpdate(await locate(), zoneData);
     locating = false;
-    if (!result.ok) {
-      message = result.message;
-      return;
+    if (update.position) {
+      position = update.position;
+      savePosition(localStorage, update.position);
     }
-    position = result.position;
-    savePosition(localStorage, result.position);
-    const guessed = guessZone(zoneData, result.position.lat, result.position.lon);
-    if (isZone(guessed)) {
-      chooseZone(guessed);
-    } else {
-      message = "Din plats verkar ligga utanför Sverige. Välj elområde manuellt.";
-    }
+    if (update.zone) chooseZone(update.zone);
+    else message = update.message;
   }
 
   async function refresh() {
