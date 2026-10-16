@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fetchCheapest, fetchStatus, fetchThunder, type CheapestWindow, type PriceStatus, type Result, type ThunderForecast } from "./lib/api";
   import { locate, toLocationUpdate } from "./lib/geolocation";
+  import { trackLatest } from "./lib/latest";
   import { loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
   import zoneData from "./lib/zones/zones.json";
   import { ZONE_INFO, type Zone } from "./lib/zones";
@@ -48,18 +49,18 @@
     else message = update.message;
   }
 
-  /** Increases with every refresh, so a slow response for an old zone or position cannot overwrite a newer one. */
-  let latestRefresh = 0;
+  /** Only the latest refresh applies its data, so a slow response for an old zone or position cannot overwrite a newer one. */
+  const startRefresh = trackLatest();
 
   async function refresh() {
     if (!zone) return;
-    const thisRefresh = ++latestRefresh;
+    const isLatest = startRefresh();
     const [s, c, t] = await Promise.all([
       fetchStatus(zone),
       fetchCheapest(zone, INTERVAL_HOURS, PERIOD_HOURS),
       thunderPlace ? fetchThunder(thunderPlace.lat, thunderPlace.lon, PERIOD_HOURS) : Promise.resolve(null),
     ]);
-    if (thisRefresh !== latestRefresh) return;
+    if (!isLatest()) return;
     status = s;
     cheapest = c;
     thunder = t;
