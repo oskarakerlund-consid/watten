@@ -60,7 +60,7 @@ Nothing is installed until you approve the list for the step that needs it.
 
 - Step 1 (installed): `typescript`, `wrangler`, `hono`, `vitest`, `@cloudflare/vitest-plugin` (successor of the deprecated `@cloudflare/vitest-pool-workers`)
 - Step 3 (installed): `zod`
-- Step 6: `@hono/zod-validator`
+- Step 6 (installed): `@hono/zod-validator`
 - Step 9: `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`
 - Step 11: Web Push library (D4), if not hand-rolled
 
@@ -180,13 +180,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** `npm run test:live` additionally prints the current classification (cheap/normal/expensive), the 48 h average and the price now → +60 min for each zone, so you can judge whether the thresholds feel right.
 
-### Step 6 – Price API
+### Step 6 – Price API ✅
 
 **Goal:** `GET /api/status` and `GET /api/cheapest` as specified above.
 
-**Files:** `src/routes/status.ts`, `src/routes/cheapest.ts`, route tests, `src/index.ts` (mount routes).
+**Files:** `src/app.ts` (Hono app factory with an injectable clock for tests), `src/routes/status.ts`, `src/routes/cheapest.ts`, `src/routes/validation.ts`, `src/routes/types.ts`, route tests, `test/seedPrices.ts`, `src/db/prices.ts` (`loadZoneIntervals`), `src/domain/time.ts` (`toStockholmIso`), `src/index.ts`.
 
-**Consequences:** Adds `@hono/zod-validator`. Endpoints read from D1 only and never call upstream. Short `Cache-Control` headers keep frontend polling from burning the 100k/day request budget. Invalid or out-of-range parameters return 400 with a clear message.
+**Consequences:** Adds `@hono/zod-validator`. Endpoints read from D1 only and never call upstream. Short `Cache-Control` headers keep frontend polling from burning the 100k/day request budget. Invalid or out-of-range parameters return 400 with a clear message; missing data returns 503. `interval` and `period` are whole hours (1–6 and 1–24, `interval` ≤ `period`).
 
 **Verify:** route tests via `app.request()` with seeded D1 (including bounds and missing-data cases); `curl` against `wrangler dev`.
 

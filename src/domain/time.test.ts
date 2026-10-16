@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { addDays, HOUR_MS, stockholmDate, stockholmDayBounds, stockholmOffset, stockholmStartOfDay } from "./time";
+import {
+  addDays,
+  HOUR_MS,
+  stockholmDate,
+  stockholmDayBounds,
+  stockholmOffset,
+  stockholmStartOfDay,
+  toStockholmIso,
+} from "./time";
 
 describe("stockholmOffset", () => {
   it("is +1 h in winter and +2 h in summer", () => {
@@ -59,5 +67,17 @@ describe("stockholmDayBounds", () => {
 
   it("is 25 hours (100 quarter-hours) when summer time ends", () => {
     expect(lengthInHours({ year: 2026, month: 10, day: 25 })).toBe(25);
+  });
+});
+
+describe("toStockholmIso", () => {
+  it("formats local time with the current offset", () => {
+    expect(toStockholmIso(Date.UTC(2026, 0, 15, 12, 30))).toBe("2026-01-15T13:30:00+01:00");
+    expect(toStockholmIso(Date.UTC(2026, 6, 15, 22, 0))).toBe("2026-07-16T00:00:00+02:00");
+  });
+
+  it("distinguishes the repeated hour when summer time ends", () => {
+    expect(toStockholmIso(Date.UTC(2026, 9, 25, 0, 30))).toBe("2026-10-25T02:30:00+02:00");
+    expect(toStockholmIso(Date.UTC(2026, 9, 25, 1, 30))).toBe("2026-10-25T02:30:00+01:00");
   });
 });

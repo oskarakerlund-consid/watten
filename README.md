@@ -13,11 +13,30 @@ _Planned._ A single-screen web app backed by a JSON API:
 - **Thunder forecast** for a position, a number of hours ahead.
 - **Push notifications** ahead of unusually high or low prices and expected thunder.
 
-Currently implemented endpoints:
+Currently implemented endpoints. All return JSON; invalid parameters give `400` with an `error` message, and missing price data gives `503`. Successful responses may be cached by the browser for 60 seconds.
 
-| Endpoint | Description |
-| --- | --- |
-| `GET /api/health` | Returns `{ "status": "ok" }`. |
+| Endpoint | Parameters | Returns |
+| --- | --- | --- |
+| `GET /api/health` | – | `{ "status": "ok" }` |
+| `GET /api/status` | `zone` (`SE1`–`SE4`, required) | `level` (`cheap` / `normal` / `expensive`) for the price from now to one hour ahead, plus `currentSekPerKwh`, `averageSekPerKwh` (trailing window), `thresholdSekPerKwh` and `averageWindowHours`. |
+| `GET /api/cheapest` | `zone` (required), `interval` hours (1–6, default 2), `period` hours (1–24, default 8, at least `interval`) | The cheapest `interval`-hour window that lies entirely within the next `period` hours: `start`/`end` (UTC), `startLocal`/`endLocal` (Swedish time with offset) and `averageSekPerKwh`. |
+
+Example:
+
+```sh
+curl "http://localhost:8787/api/cheapest?zone=SE3&interval=2&period=8"
+```
+
+```json
+{
+  "zone": "SE3", "interval": 2, "period": 8,
+  "start": "2026-10-16T20:30:00.000Z", "end": "2026-10-16T22:30:00.000Z",
+  "startLocal": "2026-10-16T22:30:00+02:00", "endLocal": "2026-10-17T00:30:00+02:00",
+  "averageSekPerKwh": 0.6356
+}
+```
+
+Prices are spot prices in SEK/kWh excluding VAT, surcharges and taxes.
 
 ## Architecture
 
@@ -32,8 +51,9 @@ Code layout under `src/`:
 
 | Directory | Responsibility |
 | --- | --- |
-| `src/index.ts` | Worker entry point and route mounting. |
-| `src/routes/` | _Planned:_ HTTP routes (Hono). |
+| `src/index.ts` | Worker entry point: HTTP and scheduled handlers. |
+| `src/app.ts` | The Hono app: middleware, route mounting, error handling. |
+| `src/routes/` | HTTP routes (Hono) with query validation. Routes only read from D1 and never call upstream APIs. |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification. |
 | `src/config.ts` | Parsing and validation of the Worker vars. |
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
@@ -54,6 +74,7 @@ Code layout under `src/`:
 | --- | --- | --- | --- |
 | [`hono`](https://github.com/honojs/hono) | runtime | API routing in the Worker | MIT |
 | [`zod`](https://github.com/colinhacks/zod) | runtime | Validation of external data and request parameters | MIT |
+| [`@hono/zod-validator`](https://github.com/honojs/middleware) | runtime | Zod validation of request parameters in Hono routes | MIT |
 | [`wrangler`](https://github.com/cloudflare/workers-sdk) | dev | Local development, type generation and deployment | MIT OR Apache-2.0 |
 | [`typescript`](https://github.com/microsoft/TypeScript) | dev | Type checking | Apache-2.0 |
 | [`vitest`](https://github.com/vitest-dev/vitest) | dev | Test runner | MIT |
