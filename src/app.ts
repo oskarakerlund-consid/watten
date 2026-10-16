@@ -19,6 +19,10 @@ export function createApp({ clock = Date.now, fetcher = (url, init) => fetch(url
       c.set("now", clock());
       c.set("fetcher", fetcher);
       await next();
+      // The API only returns JSON: never render it as a page or in a frame. Static assets get theirs from web/public/_headers.
+      c.header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+      c.header("X-Content-Type-Options", "nosniff");
+      c.header("Referrer-Policy", "no-referrer");
       // Data changes at most every 15 minutes; a short browser cache keeps polling cheap.
       if (c.res.ok && !c.res.headers.has("Cache-Control")) c.header("Cache-Control", "public, max-age=60");
     })

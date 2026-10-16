@@ -50,6 +50,7 @@ Everything runs on Cloudflare's free tier:
 - **Cloudflare D1** caches thunder forecasts per rounded position and stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
 - A **Cron Trigger** (`*/15 * * * *`) runs the price ingestion every 15 minutes. Each run fetches only days that are missing or incomplete, so most runs just read D1 and do nothing; tomorrow's prices are picked up within 15 minutes of being published (from 13:00 Swedish time), and a new deployment has prices within 15 minutes.
 - A **Svelte 5 SPA** (`web/`, built with Vite) is served as Workers static assets by the same Worker: one deploy, one origin, no CORS. Only `/api/*` runs the Worker; all other requests are free static-asset requests, and unknown paths return the app.
+- **Security headers:** the static assets get a strict Content Security Policy (only same-origin scripts, styles and API calls; no framing) and related headers from `web/public/_headers`. Those rules do not apply to Worker responses, so `src/app.ts` sets matching headers on everything under `/api/*`.
 - _Planned:_ scheduled weather checks and Web Push with VAPID.
 
 Code layout under `src/`:

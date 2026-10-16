@@ -1,0 +1,7 @@
+# Security headers for the static assets (Workers static assets reads this file; Vite copies it to web/dist).
+# Responses from the Worker (/api/*) do not get these; src/app.ts sets its own.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(self), camera=(), microphone=()
