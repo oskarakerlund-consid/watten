@@ -6,7 +6,7 @@ import { HOUR_MS } from "../domain/time";
 
 // 2026-10-16 14:00 Swedish time.
 const NOW = Date.UTC(2026, 9, 16, 12);
-const app = createApp(() => NOW);
+const app = createApp({ clock: () => NOW });
 const get = (path: string) => app.request(path, {}, env);
 
 beforeEach(async () => {

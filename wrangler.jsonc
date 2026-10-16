@@ -16,6 +16,8 @@
     "MIN_PRICE_DIFF_ORE_PER_KWH": 20,
     "PRICE_DIFF_PERCENT": 20,
     "AVERAGE_WINDOW_HOURS": 48,
+    // Thunder counts as expected in an hour from this probability (%).
+    "THUNDER_PROBABILITY_PERCENT": 20,
     // Identifies this app to MET Norway, as their terms of service require.
     "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)"
   },

@@ -9,6 +9,7 @@ describe("parseConfig", () => {
       minPriceDiffSekPerKwh: 0.2,
       priceDiffPercent: 20,
       averageWindowHours: 48,
+      thunderProbabilityPercent: 20,
       metUserAgent: "test/1.0",
     });
   });
@@ -28,6 +29,7 @@ describe("parseConfig", () => {
     ["a window over 72 hours", { AVERAGE_WINDOW_HOURS: 96 }],
     ["a non-integer window", { AVERAGE_WINDOW_HOURS: 1.5 }],
     ["a non-number", { PRICE_DIFF_PERCENT: "lots" }],
+    ["a thunder probability over 100 %", { THUNDER_PROBABILITY_PERCENT: 101 }],
   ])("rejects %s", (_name, vars) => {
     expect(() => parseConfig({ ...UA, ...vars })).toThrow();
   });

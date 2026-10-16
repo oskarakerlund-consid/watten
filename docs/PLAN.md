@@ -204,13 +204,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** `npm run test:live` additionally prints, for three Swedish locations, whether `probability_of_thunder` is present, the forecast horizon in hours and the highest thunder probability ahead.
 
-### Step 8 – Thunder API
+### Step 8 – Thunder API ✅
 
 **Goal:** `GET /api/thunder` as specified above.
 
-**Files:** `src/domain/thunder.ts` (+ tests; decides "thunder expected" and the approximate time from hourly forecast data), `src/routes/thunder.ts`, route tests, `src/index.ts`.
+**Files:** `src/domain/thunder.ts` (+ tests), `src/routes/thunder.ts` (+ tests), `src/app.ts` (injectable `fetcher` next to the clock), `src/config.ts` and `wrangler.jsonc` (`THUNDER_PROBABILITY_PERCENT`, default 20).
 
-**Consequences:** Settles D8 (location input) and the "expected thunderstorm" threshold, which is a tunable constant you approve. The endpoint accepts arbitrary coordinates and triggers upstream calls on cache misses, so coordinates are validated to lie within Sweden, rounded, and served from the D1 cache; this protects MET's servers and our subrequest budget from abuse. Returns a clear "no data" state when MET is unavailable instead of "no thunder".
+**Consequences:** Settles D8 (location input) and the "expected thunderstorm" threshold, which is a tunable constant you approve. The endpoint accepts arbitrary coordinates and triggers upstream calls on cache misses, so coordinates are validated to lie within Sweden, rounded, and served from the D1 cache; this protects MET's servers and our subrequest budget from abuse. Returns a clear "no data" state when MET is unavailable instead of "no thunder". **Implemented:** thunder is expected if any hour overlapping the period has a probability ≥ 20 %; the response gives the span from the first to the last such hour and the highest probability. Positions are validated against a bounding box around Sweden (which also includes border areas of Norway, Finland and Denmark) and rounded to two decimals before use.
 
 **Verify:** unit tests on forecast fixtures with and without thunder (including thunder starting inside and outside the window); route tests for bounds (outside Sweden, `hours` too large); `curl` against `wrangler dev` with real data.
 

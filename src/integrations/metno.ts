@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ThunderHour } from "../domain/thunder";
 
 const BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/complete";
 
@@ -17,12 +18,6 @@ const responseSchema = z.object({
     ),
   }),
 });
-
-/** Probability of thunder (0–100 %) for the hour starting at `start` (UTC epoch ms). */
-export interface ThunderHour {
-  start: number;
-  probability: number;
-}
 
 export type HttpFetcher = (url: string, init: RequestInit) => Promise<Response>;
 
