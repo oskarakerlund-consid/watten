@@ -95,7 +95,7 @@ All `GET` endpoints return JSON, read from D1 or a short-lived cache, and valida
 | Endpoint | Parameters | Answers |
 | --- | --- | --- |
 | `GET /api/status` | `zone` (`SE1`–`SE4`, required) | Class (`cheap` / `normal` / `expensive`) of the current price and the next hour, the prices behind it, the recent average used. |
-| `GET /api/cheapest` | `zone` (required), `interval` hours (2; bounded 1–6), `period` hours (8; bounded up to the known price horizon, max 24) | Start/end (UTC instants plus Swedish local time) and average price of the cheapest `interval`-long window starting within the next `period` hours. |
+| `GET /api/cheapest` | `zone` (required), `interval` hours (2; bounded 1–6), `period` hours (8; bounded up to the known price horizon, max 24) | Start/end (UTC instants plus Swedish local time) and average price of the cheapest `interval`-long window that lies entirely within the next `period` hours. |
 | `GET /api/thunder` | `lat`, `lon` (GPS position; Sweden only; rounded to 2 decimals in the browser and again server-side), `hours` (8; max 24, capped by forecast horizon) | Whether thunder is expected within `hours`, and the approximate time of the first/strongest occurrence. A forecast, not observed lightning strikes. |
 | `POST /api/push/subscribe`, `DELETE /api/push/subscribe` | Push subscription + zone + rounded location | Enable / disable notifications. |
 
@@ -130,13 +130,13 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Verify:** `npm run typecheck` and `npm test` pass; `npx wrangler dev` then `curl localhost:8787/api/health` returns 200.
 
-### Step 2 – Time and price domain (pure logic)
+### Step 2 – Time and price domain (pure logic) ✅
 
-**Goal:** correct handling of 15-minute intervals, hourly aggregation and the Swedish time zone/DST. No network, no DB.
+**Goal:** correct handling of 15-minute (and older hourly) intervals and the Swedish time zone/DST. No network, no DB.
 
 **Files:** `src/domain/types.ts` (`PriceInterval`, `Zone`, …), `src/domain/time.ts` (Europe/Stockholm helpers, local-day boundaries as UTC instants), `src/domain/prices.ts` (average over a span, cheapest window of N hours within the next P hours), plus `*.test.ts`.
 
-**Consequences:** All timestamps are stored and compared as UTC instants; Stockholm time is used only to define "today"/"tomorrow" and for display. Local days have 92, 96 or 100 intervals around DST changes and the tests must cover both transitions. Cheapest-window search works on any interval length that is a multiple of 15 min.
+**Consequences:** All timestamps are stored and compared as UTC instants; Stockholm time is used only to define "today"/"tomorrow" and for display. Local days have 92, 96 or 100 intervals around DST changes and the tests must cover both transitions. Averages are time-weighted over any span, so no separate hourly aggregation is needed: "now → +60 min" and an N-hour window are just spans. The cheapest window must lie entirely within the period and may start at "now" or at any interval boundary; ties go to the earliest.
 
 **Verify:** unit tests incl. spring-forward and fall-back days, window search with ties and with fewer known intervals than requested.
 

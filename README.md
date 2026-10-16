@@ -32,7 +32,7 @@ Code layout under `src/`:
 | --- | --- |
 | `src/index.ts` | Worker entry point and route mounting. |
 | `src/routes/` | _Planned:_ HTTP routes (Hono). |
-| `src/domain/` | _Planned:_ pure business logic, no I/O. |
+| `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search. |
 | `src/integrations/` | _Planned:_ calls to external data sources. |
 | `src/db/` | _Planned:_ D1 access. |
 
