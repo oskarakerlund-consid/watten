@@ -38,7 +38,7 @@ describe("sendPush", () => {
       requests.push({ url, init });
       return new Response(null, { status });
     };
-    const result = sendPush(fetcher, { ...keys, subject: "https://example.com" }, target, NOTIFICATION, 600);
+    const result = sendPush(fetcher, { ...keys, subject: "https://example.com" }, target, NOTIFICATION, { ttlSeconds: 600, urgency: "high" });
     return { result, requests };
   }
 
@@ -54,6 +54,7 @@ describe("sendPush", () => {
     // aes128gcm (RFC 8291) is the only encoding Apple's push service accepts.
     expect(headers.get("Content-Encoding")).toBe("aes128gcm");
     expect(headers.get("TTL")).toBe("600");
+    expect(headers.get("Urgency")).toBe("high");
     expect(headers.get("Authorization")).toMatch(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]{87}$/);
     // The payload is encrypted, so the plain text never appears in the body.
     const body = new TextDecoder().decode(init?.body as ArrayBuffer);

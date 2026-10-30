@@ -1,6 +1,6 @@
 # Watten – implementation plan
 
-Status: **steps 1–11 done (step 11 awaits a test on a real device); next is step 12.**
+Status: **steps 1–12 done (step 12 awaits a real alert on a device); next is step 13.**
 
 This is a living document. `CLAUDE.md` holds the fixed decisions, requirements and rules; this file holds the order of work. Tick off steps as they are finished and update the plan when decisions change.
 
@@ -34,14 +34,14 @@ Resolved:
 - **Thunder horizon (D9):** default 8 hours, maximum 24, additionally capped by the real forecast horizon found in step 7.
 - **Web Push (D4):** `@block65/webcrypto-web-push` (MIT), chosen in step 11. `@pushforge/builder` was chosen first but dropped because it only sends the legacy `aesgcm` encoding, which Apple's push service rejects; `web-push-neo` (MPL-2.0, 0.1.x) and `web-push-browser` (little used) were the other options. VAPID subject: the GitHub repo URL.
 - **License (D13):** MIT, in `LICENSE` from step 1.
-- **Alert lead times (step 12):** price alerts 1 hour before an unusually cheap or expensive period starts; thunder alerts 2 hours before expected thunder, with the same probability threshold as the API.
+- **Alert lead times (step 12):** price alerts 1 hour before an unusually cheap or expensive period starts; thunder alerts 2 hours before expected thunder, with the same probability threshold as the API. No price alerts 22:00–07:00 Swedish time; thunder alerts at any time.
+- **CPU time (D14):** the dashboard showed P99 12.46 ms on 2026-10-30. Workers Logs (enabled for this) showed no "exceeded CPU" and at most 5 ms per logged invocation; wall time up to 416 ms (waiting on push services and D1) does not count. The alert job still caps pushes per run (step 12).
 - **Frontend hosting (D6):** Workers static assets (locked): the built Svelte files are served by the same Worker as the API, one deploy and one origin.
 
 Open (needed before the step that depends on them; proposals are not decisions):
 
 | # | Question | Needed by | Proposal |
 | --- | --- | --- | --- |
-| D14 | P99 CPU time 12.46 ms (dashboard, 2026-10-30), above the 10 ms Free limit | Before step 12 | Workers Logs enabled to find which invocation is heavy; fix it before adding alert work to the cron run. |
 | D7 | Push fan-out beyond the 50-subrequest limit | Step 12 | Not a concern for a handful of users. If it ever is, spread sends over cron ticks. Queues would be a new service, so ask first. |
 
 ### D10 research (2026-10-15) – decided: option B
@@ -277,13 +277,15 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** Open the push form, enable notifications, receive a test push; disable and confirm that no further push arrives.
 
-### Step 12 – Notifications (price and thunder)
+### Step 12 – Notifications (price and thunder) ✅
 
 **Goal:** push notifications ahead of unusually high or low price periods and ahead of expected thunder.
 
 **Files:** `src/domain/alerts.ts` (+ tests; decides which alerts are due from prices, thunder forecast and "now"), `migrations/0004_notifications_sent.sql` (dedup state), `src/db/notifications.ts`, `src/jobs/sendAlerts.ts`, `wrangler.jsonc` (second cron trigger, e.g. every 15 min), `src/index.ts` (dispatch on `controller.cron`).
 
 **Consequences:** Alerts reuse the same classification and thunder logic as the API, per subscriber zone and rounded location. Dedup state prevents resending the same alert on consecutive ticks. Distinct locations are fetched once each per tick and from the D1 cache, within the subrequest budget. Each push costs CPU (measured in step 11) against the 10 ms budget; for a handful of subscribers that fits (D7). Lead time and which price states trigger an alert are constants you approve.
+
+**Implemented:** `src/domain/alerts.ts` (period detection with the API's classification, quiet hours, cooldowns of 3 h for price and 6 h for thunder), `src/jobs/sendAlerts.ts`, `src/db/notifications.ts`, `migrations/0004_notifications_sent.sql` (deleted with the subscription by a foreign key), `src/domain/zones.ts` (zone fallback positions, moved from the frontend so the job uses the same ones), second cron trigger `7,22,37,52 * * * *` dispatched in `src/index.ts`. At most 3 pushes per run; the rest go out on the next run. A period counts as starting when the page would change color, up to 45 minutes before the price changes, so alert titles say "ca". Price alerts are sent with normal urgency and a TTL that ends at the period start; thunder alerts with high urgency.
 
 **Verify:** unit tests on alert decisions (DST days, duplicate suppression, multiple zones/locations); local run with a fake push sender; one real end-to-end price and thunder notification to your device.
 

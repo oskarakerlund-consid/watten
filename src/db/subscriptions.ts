@@ -38,3 +38,24 @@ export async function saveSubscription(db: D1Database, subscription: StoredSubsc
 export async function deleteSubscription(db: D1Database, endpoint: string): Promise<void> {
   await db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?1").bind(endpoint).run();
 }
+
+interface SubscriptionRow {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  zone: Zone;
+  lat: number | null;
+  lon: number | null;
+}
+
+export async function loadSubscriptions(db: D1Database): Promise<StoredSubscription[]> {
+  const { results } = await db
+    .prepare("SELECT endpoint, p256dh, auth, zone, lat, lon FROM push_subscriptions ORDER BY created_utc")
+    .all<SubscriptionRow>();
+  return results.map((row) => ({
+    endpoint: row.endpoint,
+    keys: { p256dh: row.p256dh, auth: row.auth },
+    zone: row.zone,
+    position: row.lat === null || row.lon === null ? null : { lat: row.lat, lon: row.lon },
+  }));
+}

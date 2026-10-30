@@ -39,7 +39,8 @@
     "enabled": true
   },
   "triggers": {
-    // Every 15 minutes, around the clock. A run only fetches missing days, so most runs do one D1 read.
-    "crons": ["*/15 * * * *"]
+    // Price ingestion every 15 minutes; a run only fetches missing days, so most runs do one D1 read.
+    // Alerts 7 minutes later. Both must match the constants in src/index.ts.
+    "crons": ["*/15 * * * *", "7,22,37,52 * * * *"]
   }
 }

@@ -65,3 +65,15 @@ export function stockholmStartOfDay(date: LocalDate): number {
 export function stockholmDayBounds(date: LocalDate): { start: number; end: number } {
   return { start: stockholmStartOfDay(date), end: stockholmStartOfDay(addDays(date, 1)) };
 }
+
+/** Swedish local time of day at `instant`: hour 0–23 and minute. */
+export function stockholmTimeOfDay(instant: number): { hour: number; minute: number } {
+  const p = localParts(instant);
+  return { hour: p.hour!, minute: p.minute! };
+}
+
+/** Swedish local clock time at `instant` as `HH:MM`. */
+export function stockholmClock(instant: number): string {
+  const { hour, minute } = stockholmTimeOfDay(instant);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}

@@ -20,6 +20,13 @@ export interface PushNotification {
   body: string;
 }
 
+export interface PushOptions {
+  /** How long the push service may hold the message for an offline device. */
+  ttlSeconds: number;
+  /** A hint to the device: `low` may wait for a good moment, `high` is delivered at once. */
+  urgency?: "low" | "normal" | "high";
+}
+
 /** `gone`: the push service no longer knows the subscription, so it should be deleted. */
 export type PushResult = "sent" | "gone";
 
@@ -51,10 +58,10 @@ export async function sendPush(
   vapid: Vapid,
   target: PushTarget,
   notification: PushNotification,
-  ttlSeconds: number,
+  { ttlSeconds, urgency = "normal" }: PushOptions,
 ): Promise<PushResult> {
   const request = await buildPushPayload(
-    { data: { ...notification }, options: { ttl: ttlSeconds } },
+    { data: { ...notification }, options: { ttl: ttlSeconds, urgency } },
     { ...target, expirationTime: null },
     vapid,
   );

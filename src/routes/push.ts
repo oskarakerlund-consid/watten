@@ -54,7 +54,7 @@ export const pushRoute = new Hono<AppEnv>()
         vapid,
         subscription,
         { title: "Watten", body: "Notiser är påslagna." },
-        CONFIRMATION_TTL_SECONDS,
+        { ttlSeconds: CONFIRMATION_TTL_SECONDS },
       );
     } catch (error) {
       console.error("Confirmation push failed", error);

@@ -2,7 +2,7 @@
 
 Watten is a small serverless service that helps you decide when to use electricity in Sweden. It shows whether the current electricity price is relatively cheap or expensive, when the cheapest upcoming hours are, and whether thunder is expected, so you can avoid using sensitive equipment or charging an EV during a thunderstorm. Users can subscribe to Web Push notifications.
 
-> **Status:** early development, tech demo, not a commercial product. The overview page and the API work, and users can turn on Web Push notifications; the price and thunder alerts themselves are planned. See [`docs/PLAN.md`](docs/PLAN.md) for the implementation plan.
+> **Status:** early development, tech demo, not a commercial product. The overview page, the API and push notifications for price and thunder work. See [`docs/PLAN.md`](docs/PLAN.md) for the implementation plan.
 
 ## How it works
 
@@ -12,7 +12,12 @@ A single-screen web app (in Swedish) backed by a JSON API. Everything fits on on
 - The **cheapest 2-hour interval** within the next 8 hours.
 - Whether **thunder** is expected within the next 8 hours, and roughly when.
 - **Location and zone:** on the first visit you either press *Använd min plats* (the browser asks for your position; it is never requested automatically) or pick a price zone. Your zone is guessed from the position. In the settings you can change the zone and update the position. Both are stored only in your browser (`localStorage`); the position is rounded to about 1 km. Without a position, the thunder forecast is for the zone's largest city.
-- **Push notifications:** the 🔔 button opens a form to turn Web Push on or off. Turning it on sends a confirmation notification right away. The subscription is stored with the current zone and rounded position, and updated when either changes. On iPhone and iPad, Web Push only works after the page has been added to the home screen. _Planned:_ alerts ahead of unusually high or low prices and expected thunder.
+- **Push notifications:** the 🔔 button opens a form to turn Web Push on or off. Turning it on sends a confirmation notification right away. The subscription is stored with the current zone and rounded position, and updated when either changes. On iPhone and iPad, Web Push only works after the page has been added to the home screen.
+- **Alerts:** subscribers get a notification
+  - about **1 hour before an unusually cheap or expensive period** in their zone starts. "Starts" means the moment the page would change color: the level uses the coming hour, so that can be up to 45 minutes before the price itself changes. No price alerts are sent from 22:00 to 07:00 Swedish time.
+  - when **thunder is expected within 2 hours** at their position (or at the zone's largest city if they have not shared one), with the same probability threshold as the API. Thunder alerts are sent at any time of day.
+
+  A subscriber gets at most one alert of each kind per period: a new price alert of the same kind needs a period at least 3 hours from the previous one, and a new thunder alert one at least 6 hours away. This stops repeats when a forecast shifts or a level flickers.
 
 The page refreshes its data every 5 minutes and when the tab becomes visible again.
 
@@ -51,11 +56,10 @@ Everything runs on Cloudflare's free tier:
 
 - A single **Cloudflare Worker** written in TypeScript, with [Hono](https://hono.dev/) for API routing.
 - **Cloudflare D1** caches thunder forecasts per rounded position and stores electricity prices for all four zones, from two days back up to tomorrow (enough for the 48-hour average). Older rows are deleted automatically.
-- A **Cron Trigger** (`*/15 * * * *`) runs the price ingestion every 15 minutes. Each run fetches only days that are missing or incomplete, so most runs just read D1 and do nothing; tomorrow's prices are picked up within 15 minutes of being published (from 13:00 Swedish time), and a new deployment has prices within 15 minutes.
+- Two **Cron Triggers**. `*/15 * * * *` runs the price ingestion every 15 minutes. Each run fetches only days that are missing or incomplete, so most runs just read D1 and do nothing; tomorrow's prices are picked up within 15 minutes of being published (from 13:00 Swedish time), and a new deployment has prices within 15 minutes. `7,22,37,52 * * * *` runs the alert job 7 minutes later: it reads the subscriptions, the prices and the cached thunder forecasts (asking MET only when a cached forecast has expired), sends the alerts that are due and records them in D1 so they are not repeated.
 - A **Svelte 5 SPA** (`web/`, built with Vite) is served as Workers static assets by the same Worker: one deploy, one origin, no CORS. Only `/api/*` runs the Worker; all other requests are free static-asset requests, and unknown paths return the app.
 - **Security headers:** the static assets get a strict Content Security Policy (only same-origin scripts, styles and API calls; no framing) and related headers from `web/public/_headers`. Those rules do not apply to Worker responses, so `src/app.ts` sets matching headers on everything under `/api/*`.
 - **Web Push** with VAPID (RFC 8030/8291/8292) on Web Crypto, via `@block65/webcrypto-web-push`, which builds the encrypted request (`aes128gcm`, the only encoding Apple's push service accepts); the Worker sends it itself. Subscriptions live in D1. A push service answering `404`/`410` means the subscription is gone, and it is deleted. The browser side is a small service worker (`web/public/sw.js`) that only shows notifications, plus a web app manifest so iOS can install the page.
-- _Planned:_ scheduled price and thunder alerts.
 
 Code layout under `src/`:
 
@@ -64,7 +68,7 @@ Code layout under `src/`:
 | `src/index.ts` | Worker entry point: HTTP and scheduled handlers. |
 | `src/app.ts` | The Hono app: middleware, route mounting, error handling. |
 | `src/routes/` | HTTP routes (Hono) with request validation. The data routes only read from D1 and never call the price API; the push routes store subscriptions and send the confirmation push. |
-| `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification. |
+| `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification, which alerts are due, zone fallback positions. |
 | `src/config.ts` | Parsing and validation of the Worker vars. |
 | `web/` | The Svelte frontend: `src/App.svelte`, `src/components/`, and `src/lib/` (API client, settings, formatting, geolocation, push). `public/` holds the service worker, the manifest and `_headers`. |
 | `web/src/lib/zones/` | Price-zone polygons and the zone lookup used by the frontend. |
@@ -72,7 +76,7 @@ Code layout under `src/`:
 | `src/integrations/` | Calls to external data sources, with response validation (Zod). Each client takes a `fetch` function so it can be tested without network. |
 | `src/db/` | D1 access. |
 | `src/services/` | Combines integrations and storage, e.g. the cached thunder forecast. |
-| `src/jobs/` | Scheduled jobs (price ingestion). |
+| `src/jobs/` | Scheduled jobs: price ingestion and alerts. |
 | `migrations/` | D1 schema migrations. |
 
 ## Third-party data and dependencies
@@ -118,8 +122,9 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | 50 subrequests (fetches and D1 queries) per invocation | Price ingestion uses at most 34: one read, up to 16 fetches, up to 16 writes (one SQL statement per zone and day, with the rows passed as one JSON parameter) and one delete. |
 | D1: 100,000 rows written per day | About 400 price rows per day (4 zones × 96 quarter-hours), plus a one-off backfill of about 1,500 rows. |
 | D1: 5,000,000 rows read per day | Each ingestion run reads about 3,200 rows (stored prices plus the scan for old rows), 96 runs per day: about 300,000 rows. API calls read about 200 rows each. |
-| 5 Cron Triggers per account | One trigger so far. |
-| 10 ms CPU per invocation | A push send is one encryption and one signature; subscribing sends a single confirmation push. Workers Logs is enabled (`observability` in `wrangler.jsonc`), so CPU time per invocation can be checked under the Worker's *Logs* tab in the dashboard. |
+| 5 Cron Triggers per account | Two triggers. |
+| 50 subrequests per invocation (alert job) | Three D1 reads, up to three D1 queries and one MET request per distinct position, at most three pushes, then one batch write and one delete. Fits a handful of subscribers. |
+| 10 ms CPU per invocation | A push send is one encryption and one signature; subscribing sends a single confirmation push. The alert job sends at most three pushes per run and leaves the rest for the next run 15 minutes later, which is still before the period starts. Measured on the deployed Worker: at most 5 ms per invocation. Workers Logs is enabled (`observability` in `wrangler.jsonc`), so CPU time per invocation can be checked under the Worker's *Logs* tab in the dashboard. |
 | Workers Logs: 200,000 events per day, kept 3 days | One event per API call and cron run (96 per day), plus `console` output. |
 | 100,000 Worker requests per day | Static assets (the app itself) are free and unlimited; only `/api/*` counts. The page makes three API calls per refresh, every 5 minutes while open, and responses may be cached by the browser for 60 seconds. |
 
@@ -137,7 +142,7 @@ npm run test:live  # manual checks against the real upstream APIs (needs network
 npm run typecheck  # generates Worker types, type-checks the Worker and the Svelte app
 ```
 
-To run the price ingestion locally, start `npm run dev` and trigger the cron job with `curl "localhost:8787/cdn-cgi/local/scheduled"`. Inspect the result with `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"`.
+To run the cron jobs locally, start `npm run dev` and trigger them with `curl "localhost:8787/cdn-cgi/local/scheduled?cron=*/15+*+*+*+*"` (price ingestion) or `curl "localhost:8787/cdn-cgi/local/scheduled?cron=7,22,37,52+*+*+*+*"` (alerts). The `cron` parameter must match a trigger in `wrangler.jsonc`. Inspect the result with `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"`.
 
 Local secrets go in `.dev.vars` (git-ignored); see `.dev.vars.example`. Only Web Push needs one: generate a key pair with `node scripts/vapid-keys.mjs`, put `VAPID_PRIVATE_KEY` in `.dev.vars` and `VAPID_PUBLIC_KEY` in `wrangler.jsonc` (or `.dev.vars`). Without them the push endpoints answer `503` and the rest works. Browsers allow push on `http://localhost`, so it can be tested locally in a desktop browser.
 
@@ -176,7 +181,7 @@ Configuration lives in `wrangler.jsonc` (see [Configuration](#configuration)); v
 
 ## Privacy
 
-The only personal data stored on the server is a push subscription, and only while notifications are on: the browser's push endpoint and encryption keys, the zone and the rounded position (or none). It is deleted when the user turns notifications off, or when the push service reports the subscription as gone. It is never logged. Otherwise, the chosen zone and the rounded position are stored only in the browser's `localStorage`. Positions sent to `/api/thunder` are rounded to two decimals (about 1 km) and only the forecast for that rounded position is cached; the cache does not record who asked.
+The only personal data stored on the server is a push subscription, and only while notifications are on: the browser's push endpoint and encryption keys, the zone and the rounded position (or none). Which alerts it has been sent (kind and period start) is stored with it, to avoid repeats, and deleted after a day. All of it is deleted when the user turns notifications off, or when the push service reports the subscription as gone. It is never logged. Otherwise, the chosen zone and the rounded position are stored only in the browser's `localStorage`. Positions sent to `/api/thunder` are rounded to two decimals (about 1 km) and only the forecast for that rounded position is cached; the cache does not record who asked.
 
 ## License
 

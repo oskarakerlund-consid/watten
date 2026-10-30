@@ -8,11 +8,12 @@ const NOW = Date.UTC(2026, 9, 30, 12);
 const ENDPOINT = "https://fcm.googleapis.com/fcm/send/abc123";
 
 let pushEnv: Env;
+const unconfiguredEnv = { ...env, VAPID_PUBLIC_KEY: "", VAPID_PRIVATE_KEY: "" } as unknown as Env;
 let keys: { p256dh: string; auth: string };
 
 beforeAll(async () => {
   const vapid = await vapidKeys();
-  // wrangler.jsonc ships an empty public key, so its generated type is the literal "".
+  // Wrangler types each var as its literal value in wrangler.jsonc, so overrides need a cast.
   pushEnv = { ...env, VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey } as Env;
   keys = await subscriptionKeys();
 });
@@ -51,7 +52,7 @@ describe("GET /api/push/key", () => {
   });
 
   it("answers 503 when push is not configured", async () => {
-    const response = await appWithPushService(201, { ...env, VAPID_PUBLIC_KEY: "", VAPID_PRIVATE_KEY: "" }).send("GET", "/api/push/key");
+    const response = await appWithPushService(201, unconfiguredEnv).send("GET", "/api/push/key");
     expect(response.status).toBe(503);
   });
 });
@@ -115,7 +116,7 @@ describe("POST /api/push/subscribe", () => {
   });
 
   it("answers 503 and stores nothing when push is not configured", async () => {
-    const push = appWithPushService(201, { ...env, VAPID_PUBLIC_KEY: "", VAPID_PRIVATE_KEY: "" });
+    const push = appWithPushService(201, unconfiguredEnv);
     expect((await push.send("POST", "/api/push/subscribe", subscribeBody())).status).toBe(503);
     expect(await storedRows()).toEqual([]);
   });
