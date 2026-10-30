@@ -25,7 +25,14 @@
     // Thunder counts as expected in an hour from this probability (%).
     "THUNDER_PROBABILITY_PERCENT": 20,
     // Identifies this app to MET Norway, as their terms of service require.
-    "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)"
+    "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)",
+    // Web Push. The public key is not a secret; the private key is set with `wrangler secret put VAPID_PRIVATE_KEY`.
+    // Push endpoints answer 503 until both keys are set. See README "Configuration".
+    "VAPID_PUBLIC_KEY": "",
+    "VAPID_SUBJECT": "https://github.com/oskarakerlund-consid/watten"
+  },
+  "secrets": {
+    "required": ["VAPID_PRIVATE_KEY"]
   },
   "triggers": {
     // Every 15 minutes, around the clock. A run only fetches missing days, so most runs do one D1 read.

@@ -1,0 +1,40 @@
+import type { Zone } from "../domain/types";
+import type { PushTarget } from "../integrations/webpush";
+
+export interface StoredSubscription extends PushTarget {
+  zone: Zone;
+  /** Rounded position, or null if the user has not shared one. */
+  position: { lat: number; lon: number } | null;
+}
+
+/**
+ * Stores a subscription, or updates its keys, zone and position if the endpoint is already stored.
+ * Returns true if the subscription is new.
+ */
+export async function saveSubscription(db: D1Database, subscription: StoredSubscription, now: number): Promise<boolean> {
+  const values = [
+    subscription.endpoint,
+    subscription.keys.p256dh,
+    subscription.keys.auth,
+    subscription.zone,
+    subscription.position?.lat ?? null,
+    subscription.position?.lon ?? null,
+  ];
+  const inserted = await db
+    .prepare(
+      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, zone, lat, lon, created_utc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+       ON CONFLICT (endpoint) DO NOTHING`,
+    )
+    .bind(...values, now)
+    .run();
+  if (inserted.meta.changes > 0) return true;
+  await db
+    .prepare("UPDATE push_subscriptions SET p256dh = ?2, auth = ?3, zone = ?4, lat = ?5, lon = ?6 WHERE endpoint = ?1")
+    .bind(...values)
+    .run();
+  return false;
+}
+
+export async function deleteSubscription(db: D1Database, endpoint: string): Promise<void> {
+  await db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?1").bind(endpoint).run();
+}

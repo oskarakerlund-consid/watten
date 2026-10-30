@@ -2,12 +2,14 @@
   import { fetchCheapest, fetchStatus, fetchThunder, type CheapestResponse, type PriceStatusResponse, type Result, type ThunderResponse } from "./lib/api";
   import { locate, toLocationUpdate } from "./lib/geolocation";
   import { trackLatest } from "./lib/latest";
+  import { syncPush } from "./lib/push";
   import { loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
   import zoneData from "./lib/zones/zones.json";
   import { ZONE_INFO, type Zone } from "./lib/zones";
   import PriceHeadline from "./components/PriceHeadline.svelte";
   import CheapestCard from "./components/CheapestCard.svelte";
   import ThunderCard from "./components/ThunderCard.svelte";
+  import PushDialog from "./components/PushDialog.svelte";
   import SettingsDialog from "./components/SettingsDialog.svelte";
   import ZonePicker from "./components/ZonePicker.svelte";
 
@@ -21,6 +23,7 @@
   let message = $state<string | null>(null);
   let locating = $state(false);
   let settingsOpen = $state(false);
+  let pushOpen = $state(false);
 
   let status = $state<Result<PriceStatusResponse> | null>(null);
   let cheapest = $state<Result<CheapestResponse> | null>(null);
@@ -37,6 +40,12 @@
     message = null;
   }
 
+  /** A zone picked by hand. */
+  function pickZone(next: Zone) {
+    chooseZone(next);
+    syncPush(next, position);
+  }
+
   async function useMyLocation() {
     locating = true;
     const update = toLocationUpdate(await locate(), zoneData);
@@ -47,6 +56,7 @@
     }
     if (update.zone) chooseZone(update.zone);
     else message = update.message;
+    if (zone) syncPush(zone, position);
   }
 
   /** Only the latest refresh applies its data, so a slow response for an old zone or position cannot overwrite a newer one. */
@@ -88,7 +98,10 @@
       {#if zone}{zone} · {ZONE_INFO[zone].name}{:else}Watten{/if}
     </span>
     {#if zone}
-      <button type="button" class="settings-button" onclick={() => (settingsOpen = true)} aria-label="Inställningar">⚙︎</button>
+      <span class="header-buttons">
+        <button type="button" class="settings-button" onclick={() => (pushOpen = true)} aria-label="Notiser">🔔</button>
+        <button type="button" class="settings-button" onclick={() => (settingsOpen = true)} aria-label="Inställningar">⚙︎</button>
+      </span>
     {/if}
   </header>
 
@@ -99,7 +112,7 @@
       <button type="button" class="primary" onclick={useMyLocation} disabled={locating}>
         {locating ? "Hämtar plats…" : "Använd min plats"}
       </button>
-      <ZonePicker selected={null} onchoose={chooseZone} />
+      <ZonePicker selected={null} onchoose={pickZone} />
     </section>
   {:else}
     <PriceHeadline {status} />
@@ -127,10 +140,14 @@
     {zone}
     {position}
     {locating}
-    onchoose={chooseZone}
+    onchoose={pickZone}
     onlocate={useMyLocation}
     onclose={() => (settingsOpen = false)}
   />
+{/if}
+
+{#if pushOpen && zone}
+  <PushDialog {zone} {position} onclose={() => (pushOpen = false)} />
 {/if}
 
 <style>
@@ -157,6 +174,7 @@
     align-items: center;
     font-weight: 600;
   }
+  .header-buttons { display: flex; gap: 0.5rem; }
   .settings-button {
     background: none;
     border: 1px solid currentColor;

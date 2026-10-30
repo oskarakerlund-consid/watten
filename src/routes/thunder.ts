@@ -5,15 +5,11 @@ import { assessThunder } from "../domain/thunder";
 import { toStockholmIso } from "../domain/time";
 import { getThunderForecast } from "../services/thunderForecast";
 import type { AppEnv } from "./types";
-import { validQuery } from "./validation";
+import { latSchema, lonSchema, validQuery } from "./validation";
 
-/** Rounded to about 1 km: protects privacy and lets nearby users share cached forecasts. */
-const roundToTwoDecimals = (value: number) => Math.round(value * 100) / 100;
-
-// A bounding box around Sweden. It also includes border areas of Norway, Finland and Denmark.
 const querySchema = z.object({
-  lat: z.coerce.number().min(55).max(69.1).transform(roundToTwoDecimals),
-  lon: z.coerce.number().min(10.9).max(24.2).transform(roundToTwoDecimals),
+  lat: latSchema(z.coerce.number()),
+  lon: lonSchema(z.coerce.number()),
   hours: z.coerce.number().int().min(1).max(24).default(8),
 });
 

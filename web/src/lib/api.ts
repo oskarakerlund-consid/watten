@@ -46,3 +46,27 @@ export const fetchCheapest = (zone: Zone, interval: number, period: number) =>
 
 export const fetchThunder = (lat: number, lon: number, hours: number) =>
   get<ThunderResponse>("/api/thunder", { lat, lon, hours });
+
+async function send<T>(method: "POST" | "DELETE", path: string, body: unknown): Promise<Result<T | null>> {
+  try {
+    const response = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (response.ok) return { ok: true, data: response.status === 204 ? null : ((await response.json()) as T) };
+    return { ok: false, message: response.status === 503 ? "Notiser är inte tillgängliga just nu." : "Något gick fel." };
+  } catch {
+    return { ok: false, message: "Kunde inte nå tjänsten." };
+  }
+}
+
+/** What the API stores for a push subscription. */
+export interface SubscriptionRequest {
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
+  zone: Zone;
+  position: { lat: number; lon: number } | null;
+}
+
+export const fetchPushKey = () => get<{ publicKey: string }>("/api/push/key", {});
+
+export const saveSubscription = (request: SubscriptionRequest) =>
+  send<{ created: boolean; confirmationSent: boolean }>("POST", "/api/push/subscribe", request);
+
+export const removeSubscription = (endpoint: string) => send<null>("DELETE", "/api/push/subscribe", { endpoint });

@@ -1,0 +1,66 @@
+import { buildPushPayload } from "@block65/webcrypto-web-push";
+import type { HttpFetcher } from "./http";
+
+/** Where and how to send a push: the browser's subscription. */
+export interface PushTarget {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+/** The VAPID key pair (base64url) and a contact for the push service (`mailto:` or `https:` URL). */
+export interface Vapid {
+  publicKey: string;
+  privateKey: string;
+  subject: string;
+}
+
+/** What the service worker (`web/public/sw.js`) shows. */
+export interface PushNotification {
+  title: string;
+  body: string;
+}
+
+/** `gone`: the push service no longer knows the subscription, so it should be deleted. */
+export type PushResult = "sent" | "gone";
+
+// The push services of Chrome/Edge/Opera (FCM), Firefox, Safari and Windows (WNS).
+const PUSH_HOSTS = ["fcm.googleapis.com", "updates.push.services.mozilla.com", "web.push.apple.com"];
+const PUSH_HOST_SUFFIXES = [".notify.windows.com"];
+
+/**
+ * True if the endpoint is an https URL on a known push service.
+ * Without this check anyone could make the Worker send requests to any URL.
+ */
+export function isPushServiceEndpoint(endpoint: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" || url.port !== "" || url.username !== "" || url.password !== "") return false;
+  return PUSH_HOSTS.includes(url.hostname) || PUSH_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix));
+}
+
+/**
+ * Encrypts (RFC 8291, aes128gcm) and sends one notification. Throws if the push service rejects it for another
+ * reason than an expired subscription. Error messages never include the endpoint, which is personal data.
+ */
+export async function sendPush(
+  fetcher: HttpFetcher,
+  vapid: Vapid,
+  target: PushTarget,
+  notification: PushNotification,
+  ttlSeconds: number,
+): Promise<PushResult> {
+  const request = await buildPushPayload(
+    { data: { ...notification }, options: { ttl: ttlSeconds } },
+    { ...target, expirationTime: null },
+    vapid,
+  );
+  const response = await fetcher(target.endpoint, { method: "POST", headers: request.headers, body: request.body });
+  await response.body?.cancel();
+  if (response.ok) return "sent";
+  if (response.status === 404 || response.status === 410) return "gone";
+  throw new Error(`Push service answered HTTP ${response.status}`);
+}

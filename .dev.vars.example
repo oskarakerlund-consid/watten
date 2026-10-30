@@ -1,2 +1,5 @@
 # Local secrets for `wrangler dev`. Copy to `.dev.vars` (git-ignored) and fill in.
-# No secrets are needed yet.
+# Generate a Web Push key pair with `node scripts/vapid-keys.mjs`. The public key goes in wrangler.jsonc;
+# set it here too if you use a different key pair locally.
+VAPID_PRIVATE_KEY=
+# VAPID_PUBLIC_KEY=

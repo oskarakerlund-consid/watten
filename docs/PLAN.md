@@ -1,6 +1,6 @@
 # Watten – implementation plan
 
-Status: **draft v3, awaiting review. Nothing is implemented yet.**
+Status: **steps 1–11 done (step 11 awaits a test on a real device); next is step 12.**
 
 This is a living document. `CLAUDE.md` holds the fixed decisions, requirements and rules; this file holds the order of work. Tick off steps as they are finished and update the plan when decisions change.
 
@@ -32,7 +32,7 @@ Resolved:
 - **Location (D8) and zone (D10 = option B):** if no position is stored, the frontend shows a "use my location" button that requests the browser position (never automatically on load). The position is rounded to 2 decimals (~1 km) in the browser, stored in `localStorage`, and sent as `lat`/`lon` to `/api/thunder`. The zone is guessed from the position with bundled, simplified polygons derived from `entsoe-py`, without asking for confirmation. Afterwards the user can change the zone manually and reload the GPS position; reloading re-guesses the zone and overwrites a manual choice (D11). Both are stored in `localStorage`.
 - **Polygon simplification (D12):** a small dependency-free script, `scripts/simplify-zones.mjs` with the logic in `scripts/simplifyGeometry.ts` (Douglas–Peucker), run once by hand; the procedure is documented in `README.md`. Done in step 9a. Without a position (denied, unavailable), the user picks the zone and a fixed representative point per zone is used for thunder.
 - **Thunder horizon (D9):** default 8 hours, maximum 24, additionally capped by the real forecast horizon found in step 7.
-- **Web Push (D4):** spike one Workers-compatible library (`web-push-neo`, `web-push-browser` or `PushForge`; none reviewed yet) in step 11; fall back to hand-rolled Web Crypto.
+- **Web Push (D4):** `@block65/webcrypto-web-push` (MIT), chosen in step 11. `@pushforge/builder` was chosen first but dropped because it only sends the legacy `aesgcm` encoding, which Apple's push service rejects; `web-push-neo` (MPL-2.0, 0.1.x) and `web-push-browser` (little used) were the other options. VAPID subject: the GitHub repo URL.
 - **License (D13):** MIT, in `LICENSE` from step 1.
 - **Frontend hosting (D6):** Workers static assets (locked): the built Svelte files are served by the same Worker as the API, one deploy and one origin.
 
@@ -62,7 +62,7 @@ Nothing is installed until you approve the list for the step that needs it.
 - Step 3 (installed): `zod`
 - Step 6 (installed): `@hono/zod-validator`
 - Step 9b (installed): `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, `svelte-check`; TypeScript downgraded from 7 to 6 because `svelte-check` crashes with 7 (your decision)
-- Step 11: Web Push library (D4), if not hand-rolled
+- Step 11 (installed): `@block65/webcrypto-web-push` (D4)
 
 ## Cloudflare and third-party setup (user actions)
 
@@ -72,7 +72,7 @@ Nothing is installed until you approve the list for the step that needs it.
 | Step 4 | `npx wrangler d1 create watten`, then paste the returned `database_id` into `wrangler.jsonc` (agent prepares everything else) | One D1 database. The ID is not a secret. |
 | Step 7 | Choose a contact for the MET `User-Agent`, e.g. `watten/0.1 (your-email-or-github-url)` | Required by MET terms; fake or random values count as abuse. Appears in the repo's config, so pick something you are happy to publish. |
 | Step 10 | `npx wrangler deploy` (you run it) and `npx wrangler d1 migrations apply watten --remote` | You deploy; the agent does not. Served on `https://watten.<your-subdomain>.workers.dev`. If prompted, register a `workers.dev` subdomain. No custom domain needed. |
-| Step 11 | Generate a VAPID key pair (agent provides the command). Set the private key with `npx wrangler secret put VAPID_PRIVATE_KEY`. Put the public key in `wrangler.jsonc` vars and in `.dev.vars` for local runs. Choose a VAPID `subject` (`mailto:` or https URL) | Private key never goes in git or the frontend. HTTPS is required by Web Push; `localhost` is exempt during development. |
+| Step 11 | Generate a VAPID key pair with `node scripts/vapid-keys.mjs`. Set the private key with `npx wrangler secret put VAPID_PRIVATE_KEY`. Put the public key in `wrangler.jsonc` vars and in `.dev.vars` for local runs. Choose a VAPID `subject` (`mailto:` or https URL) | Private key never goes in git or the frontend. HTTPS is required by Web Push; `localhost` is exempt during development. |
 | Elpriset just nu | Nothing to register | Credit them in the UI (requested, not required). |
 | MET Norway | Nothing to register | Credit MET Norway (CC BY 4.0) in the UI. |
 
@@ -249,7 +249,7 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** `npm run dev`, open <http://localhost:8787> in a Windows browser. Press "use my location", change zone, reload the position. Use DevTools device mode at 360×640 to confirm nothing scrolls.
 
-### Step 10 – First deploy
+### Step 10 – First deploy ✅
 
 **Goal:** the service runs on Cloudflare and ingests real prices on its own.
 
@@ -261,13 +261,15 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** Open `https://watten.<your-subdomain>.workers.dev` on your phone; check Workers and D1 usage in the Cloudflare dashboard.
 
-### Step 11 – Web Push: subscribe/unsubscribe (spike and UI)
+### Step 11 – Web Push: subscribe/unsubscribe (spike and UI) ✅
 
 **Goal:** prove a Worker can send an encrypted Web Push to a real browser, and let the user enable/disable notifications from the UI.
 
 **Files:** `src/integrations/webpush.ts` (send function behind a small interface), `src/routes/push.ts` (`POST` / `DELETE /api/push/subscribe`), `migrations/0003_push_subscriptions.sql` (endpoint, keys, zone, rounded lat/lon, created_at), `src/db/subscriptions.ts`, `web/public/sw.js` (service worker), `web/public/manifest.webmanifest`, `web/src/lib/push.ts`, `web/src/PushDialog.svelte`, `.dev.vars.example`, `wrangler.jsonc` (vars).
 
 **Consequences:** Settles D4. The UI is a simple on/off form, which saves the user's currently selected zone and location with the subscription (no per-alert-type options). Stored subscription data is personal data: endpoint, keys and a rounded location. Never log it, keep it only while subscribed, delete it on unsubscribe and show a short note in the form saying what is stored. The subscribe endpoint validates input with Zod and accepts only `https` endpoints on known push-service hosts; otherwise it lets anyone make the Worker POST to arbitrary URLs. Expired subscriptions (HTTP 404/410 from the push service) are deleted automatically. iOS delivers Web Push only to a home-screen-installed PWA, hence the manifest. The spike measures per-send CPU time to size step 12.
+
+**Implemented:** `src/integrations/webpush.ts` (send, endpoint allowlist for FCM, Mozilla, Apple and WNS), `src/routes/push.ts` (`GET /api/push/key`, `POST`/`DELETE /api/push/subscribe`), `src/db/subscriptions.ts`, `migrations/0003_push_subscriptions.sql`, `web/public/sw.js`, `web/public/manifest.webmanifest`, `web/src/lib/push.ts`, `web/src/components/PushDialog.svelte` (🔔 in the header), `scripts/vapid-keys.mjs`. The test push is a confirmation sent once when a new subscription is stored. Zone and position changes re-save the subscription. The public key is served by `GET /api/push/key` so the frontend gets it from the API. Without VAPID config the push endpoints answer 503. The manifest has no icons yet. Locally verified against FCM: a fake subscription is answered as gone and deleted. Still to do by you: a real device test and the CPU time per send (`npx wrangler tail` or Workers Logs).
 
 **Verify:** subscribe in desktop Chrome on `localhost`, send a test push, receive it; unsubscribe and confirm the row is gone and a further send is not attempted; repeat on a phone against the deployed URL (step 10). Record CPU time per send. This step can be moved earlier (right after step 1) if you'd rather settle the biggest risk first.
 
@@ -299,7 +301,7 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 ## Risks, highest first
 
-1. **Web Push on Workers** (steps 11, 12): library fit and the 10 ms CPU budget per invocation. Mitigation: spike, measure, keep subscriber count small.
+1. **Web Push on Workers** (steps 11, 12): library chosen (D4); the 10 ms CPU budget per invocation is not measured yet. Mitigation: measure on the deployed Worker, keep subscriber count small.
 2. ~~**Thunder data availability**~~ resolved in step 7: `probability_of_thunder` covers all of Sweden ~55 hours ahead.
 3. **Tuning "relative cheap/expensive"** (step 5): subjective and drives every user-facing feature. Mitigation: tune on real data with you before building on it.
 4. **Upstream stability** (steps 3, 7): both sources are free with no SLA. Mitigation: D1 cache, stale-data handling.

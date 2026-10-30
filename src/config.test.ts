@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseConfig } from "./config";
+import { parseConfig, parsePushConfig } from "./config";
 
 const UA = { MET_USER_AGENT: "test/1.0" };
 
@@ -32,5 +32,31 @@ describe("parseConfig", () => {
     ["a thunder probability over 100 %", { THUNDER_PROBABILITY_PERCENT: 101 }],
   ])("rejects %s", (_name, vars) => {
     expect(() => parseConfig({ ...UA, ...vars })).toThrow();
+  });
+});
+
+describe("parsePushConfig", () => {
+  const valid = {
+    VAPID_PUBLIC_KEY: `B${"a".repeat(86)}`,
+    VAPID_PRIVATE_KEY: "b".repeat(43),
+    VAPID_SUBJECT: "https://example.com",
+  };
+
+  it("reads the VAPID settings", () => {
+    expect(parsePushConfig(valid)).toEqual({
+      vapidPublicKey: valid.VAPID_PUBLIC_KEY,
+      vapidPrivateKey: valid.VAPID_PRIVATE_KEY,
+      vapidSubject: "https://example.com",
+    });
+    expect(parsePushConfig({ ...valid, VAPID_SUBJECT: "mailto:someone@example.com" })).not.toBeNull();
+  });
+
+  it.each([
+    ["no keys", { VAPID_SUBJECT: valid.VAPID_SUBJECT }],
+    ["an empty public key", { ...valid, VAPID_PUBLIC_KEY: "" }],
+    ["a malformed private key", { ...valid, VAPID_PRIVATE_KEY: "not a key" }],
+    ["a subject that is not mailto: or https:", { ...valid, VAPID_SUBJECT: "http://example.com" }],
+  ])("returns null for %s", (_name, env) => {
+    expect(parsePushConfig(env)).toBeNull();
   });
 });

@@ -38,3 +38,33 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
     metUserAgent: vars.MET_USER_AGENT,
   };
 }
+
+const pushConfigSchema = z.object({
+  /** VAPID public key (base64url, uncompressed P-256 point). Not a secret; the browser needs it to subscribe. */
+  VAPID_PUBLIC_KEY: z.string().regex(/^[A-Za-z0-9_-]{87}$/, "must be a base64url P-256 public key"),
+  /** VAPID private key (base64url, the 32-byte P-256 scalar). A secret, set with `wrangler secret put`. */
+  VAPID_PRIVATE_KEY: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "must be a base64url P-256 private key"),
+  /** Contact for push services, a `mailto:` or `https:` URL. */
+  VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)\S+$/, "must start with mailto: or https://"),
+});
+
+export interface PushConfig {
+  vapidPublicKey: string;
+  vapidPrivateKey: string;
+  vapidSubject: string;
+}
+
+/** Reads the Web Push settings. Returns null if they are missing or invalid, so the rest of the API still works. */
+export function parsePushConfig(env: Partial<Record<keyof z.input<typeof pushConfigSchema>, unknown>>): PushConfig | null {
+  const result = pushConfigSchema.safeParse({
+    VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: env.VAPID_SUBJECT,
+  });
+  if (!result.success) return null;
+  return {
+    vapidPublicKey: result.data.VAPID_PUBLIC_KEY,
+    vapidPrivateKey: result.data.VAPID_PRIVATE_KEY,
+    vapidSubject: result.data.VAPID_SUBJECT,
+  };
+}
