@@ -34,6 +34,10 @@
   "secrets": {
     "required": ["VAPID_PRIVATE_KEY"]
   },
+  // Workers Logs: per-invocation logs with CPU time in the dashboard. Free plan: 200,000 events/day, kept 3 days.
+  "observability": {
+    "enabled": true
+  },
   "triggers": {
     // Every 15 minutes, around the clock. A run only fetches missing days, so most runs do one D1 read.
     "crons": ["*/15 * * * *"]

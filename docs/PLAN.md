@@ -34,12 +34,14 @@ Resolved:
 - **Thunder horizon (D9):** default 8 hours, maximum 24, additionally capped by the real forecast horizon found in step 7.
 - **Web Push (D4):** `@block65/webcrypto-web-push` (MIT), chosen in step 11. `@pushforge/builder` was chosen first but dropped because it only sends the legacy `aesgcm` encoding, which Apple's push service rejects; `web-push-neo` (MPL-2.0, 0.1.x) and `web-push-browser` (little used) were the other options. VAPID subject: the GitHub repo URL.
 - **License (D13):** MIT, in `LICENSE` from step 1.
+- **Alert lead times (step 12):** price alerts 1 hour before an unusually cheap or expensive period starts; thunder alerts 2 hours before expected thunder, with the same probability threshold as the API.
 - **Frontend hosting (D6):** Workers static assets (locked): the built Svelte files are served by the same Worker as the API, one deploy and one origin.
 
 Open (needed before the step that depends on them; proposals are not decisions):
 
 | # | Question | Needed by | Proposal |
 | --- | --- | --- | --- |
+| D14 | P99 CPU time 12.46 ms (dashboard, 2026-10-30), above the 10 ms Free limit | Before step 12 | Workers Logs enabled to find which invocation is heavy; fix it before adding alert work to the cron run. |
 | D7 | Push fan-out beyond the 50-subrequest limit | Step 12 | Not a concern for a handful of users. If it ever is, spread sends over cron ticks. Queues would be a new service, so ask first. |
 
 ### D10 research (2026-10-15) – decided: option B

@@ -119,7 +119,8 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | D1: 100,000 rows written per day | About 400 price rows per day (4 zones × 96 quarter-hours), plus a one-off backfill of about 1,500 rows. |
 | D1: 5,000,000 rows read per day | Each ingestion run reads about 3,200 rows (stored prices plus the scan for old rows), 96 runs per day: about 300,000 rows. API calls read about 200 rows each. |
 | 5 Cron Triggers per account | One trigger so far. |
-| 10 ms CPU per invocation | A push send is one encryption and one signature; subscribing sends a single confirmation push. |
+| 10 ms CPU per invocation | A push send is one encryption and one signature; subscribing sends a single confirmation push. Workers Logs is enabled (`observability` in `wrangler.jsonc`), so CPU time per invocation can be checked under the Worker's *Logs* tab in the dashboard. |
+| Workers Logs: 200,000 events per day, kept 3 days | One event per API call and cron run (96 per day), plus `console` output. |
 | 100,000 Worker requests per day | Static assets (the app itself) are free and unlimited; only `/api/*` counts. The page makes three API calls per refresh, every 5 minutes while open, and responses may be cached by the browser for 60 seconds. |
 
 ## Getting started
