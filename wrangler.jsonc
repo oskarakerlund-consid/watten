@@ -28,7 +28,7 @@
     "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)",
     // Web Push. The public key is not a secret; the private key is set with `wrangler secret put VAPID_PRIVATE_KEY`.
     // Push endpoints answer 503 until both keys are set. See README "Configuration".
-    "VAPID_PUBLIC_KEY": "",
+    "VAPID_PUBLIC_KEY": "BIC1RXwZC4_K851gT-hRC7jPPyuQHJVolptccGdee3jYDgIAl_T1otsxhF8ov2igzQmvmbAsHuuMqa68snffIlU",
     "VAPID_SUBJECT": "https://github.com/oskarakerlund-consid/watten"
   },
   "secrets": {
