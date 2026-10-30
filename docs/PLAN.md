@@ -1,6 +1,6 @@
 # Watten – implementation plan
 
-Status: **steps 1–12 done (step 12 awaits a real alert on a device); next is step 13.**
+Status: **all steps done. Remaining: your one-week review of the dashboard (step 13).**
 
 This is a living document. `CLAUDE.md` holds the fixed decisions, requirements and rules; this file holds the order of work. Tick off steps as they are finished and update the plan when decisions change.
 
@@ -38,11 +38,9 @@ Resolved:
 - **CPU time (D14):** the dashboard showed P99 12.46 ms on 2026-10-30. Workers Logs (enabled for this) showed no "exceeded CPU" and at most 5 ms per logged invocation; wall time up to 416 ms (waiting on push services and D1) does not count. The alert job still caps pushes per run (step 12).
 - **Frontend hosting (D6):** Workers static assets (locked): the built Svelte files are served by the same Worker as the API, one deploy and one origin.
 
-Open (needed before the step that depends on them; proposals are not decisions):
+- **Push fan-out (D7):** spread over cron runs: at most 3 pushes and 2 forecast refreshes per alert run, every 5 minutes, at most 25 subscriptions. Raise the caps only after measuring CPU on runs that send pushes.
 
-| # | Question | Needed by | Proposal |
-| --- | --- | --- | --- |
-| D7 | Push fan-out beyond the 50-subrequest limit | Step 12 | Not a concern for a handful of users. If it ever is, spread sends over cron ticks. Queues would be a new service, so ask first. |
+Open: none.
 
 ### D10 research (2026-10-15) – decided: option B
 
@@ -291,7 +289,7 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Manual check (you):** Trigger the alert job locally (`curl "localhost:8787/cdn-cgi/local/scheduled?cron=…"`) with a forced price/thunder situation and receive the notification; later, a real one on your phone.
 
-### Step 13 – Hardening and handover
+### Step 13 – Hardening and handover ✅
 
 **Goal:** make the service safe to leave running.
 
@@ -299,9 +297,11 @@ Each step lists: goal, files touched, consequences, and how to verify. File path
 
 **Consequences:** Defines behaviour when upstream sources are down (serve last known data, mark it stale in API and UI). Reviews free-tier headroom with real usage. Any rate limiting that needs a new Cloudflare product is brought to you first.
 
+**Implemented:** at most 25 subscriptions (`MAX_SUBSCRIPTIONS` in `src/routes/push.ts`; checked in the same SQL statement as the insert; `409` when full, existing ones can still be updated) and a 4 KB body limit on the push routes (Hono's built-in `bodyLimit`). To serve 25 subscriptions within the Free limits, the alert job now runs every 5 minutes (still 3 pushes per run), reads all cached forecasts in one D1 query, and refreshes at most 2 expired forecasts from MET per run (oldest first; the rest use their cached forecast). Upstream failures: MET was already handled (stale forecast, marked in API and UI). Prices never go stale (they are final once published); what can be missing is tomorrow's prices, so `/api/cheapest` returns `complete`/`knownUntil` and the card says how far prices are known. Not done: keeping the last response in the UI when a refresh fails (not chosen), configurable upstream base URLs for the manual check below (not requested; use the tests instead).
+
 **Verify:** simulate upstream failure locally; review the dashboard after a week of running.
 
-**Manual check (you):** Stop network access for upstreams locally (e.g. a wrong base URL in `.dev.vars`) and confirm the UI marks data as stale instead of failing.
+**Manual check (you):** Locally, after `npm run dev` and a price ingestion, delete tomorrow's prices with `npx wrangler d1 execute watten --local --command "delete from prices where start_utc >= (select max(start_utc) from prices) - 86400000"` and confirm the cheapest card says how far prices are known (in the evening, when 8 hours reach past midnight). After a week, check Workers, D1 and CPU usage in the dashboard.
 
 ## Risks, highest first
 

@@ -54,3 +54,17 @@ export function cheapestWindow(
   }
   return best;
 }
+
+/**
+ * How far from `from` the intervals cover time without gaps, capped at `to`.
+ * Returns `from` if nothing covers `from` itself.
+ */
+export function coveredUntil(intervals: readonly PriceInterval[], from: number, to: number): number {
+  let covered = from;
+  for (const interval of [...intervals].sort((a, b) => a.start - b.start)) {
+    if (interval.start > covered) break;
+    covered = Math.max(covered, interval.end);
+    if (covered >= to) return to;
+  }
+  return covered;
+}

@@ -7,11 +7,18 @@ export interface StoredSubscription extends PushTarget {
   position: { lat: number; lon: number } | null;
 }
 
+export type SaveResult = "created" | "updated" | "full";
+
 /**
  * Stores a subscription, or updates its keys, zone and position if the endpoint is already stored.
- * Returns true if the subscription is new.
+ * A new subscription is only stored while there are fewer than `limit`; the count and the insert are one statement.
  */
-export async function saveSubscription(db: D1Database, subscription: StoredSubscription, now: number): Promise<boolean> {
+export async function saveSubscription(
+  db: D1Database,
+  subscription: StoredSubscription,
+  now: number,
+  limit: number,
+): Promise<SaveResult> {
   const values = [
     subscription.endpoint,
     subscription.keys.p256dh,
@@ -20,19 +27,21 @@ export async function saveSubscription(db: D1Database, subscription: StoredSubsc
     subscription.position?.lat ?? null,
     subscription.position?.lon ?? null,
   ];
-  const inserted = await db
-    .prepare(
-      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, zone, lat, lon, created_utc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-       ON CONFLICT (endpoint) DO NOTHING`,
-    )
-    .bind(...values, now)
-    .run();
-  if (inserted.meta.changes > 0) return true;
-  await db
+  const updated = await db
     .prepare("UPDATE push_subscriptions SET p256dh = ?2, auth = ?3, zone = ?4, lat = ?5, lon = ?6 WHERE endpoint = ?1")
     .bind(...values)
     .run();
-  return false;
+  if (updated.meta.changes > 0) return "updated";
+
+  const inserted = await db
+    .prepare(
+      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, zone, lat, lon, created_utc)
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7 WHERE (SELECT count(*) FROM push_subscriptions) < ?8
+       ON CONFLICT (endpoint) DO NOTHING`,
+    )
+    .bind(...values, now, limit)
+    .run();
+  return inserted.meta.changes > 0 ? "created" : "full";
 }
 
 export async function deleteSubscription(db: D1Database, endpoint: string): Promise<void> {

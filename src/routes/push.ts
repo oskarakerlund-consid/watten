@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { parsePushConfig } from "../config";
 import { deleteSubscription, saveSubscription } from "../db/subscriptions";
@@ -24,6 +25,15 @@ const unsubscribeSchema = z.object({ endpoint: endpointSchema });
 /** A confirmation that is useless later, so push services may drop it after an hour. */
 const CONFIRMATION_TTL_SECONDS = 3600;
 
+/**
+ * Total subscriptions allowed. The alert job sends a few pushes per run so it stays within the Free CPU limit,
+ * and this many still get a price alert before the period starts. See README "Free-tier limits".
+ */
+export const MAX_SUBSCRIPTIONS = 25;
+
+/** A subscription request is well under 1 KB; anything much larger is rejected before it is parsed. */
+const MAX_BODY_BYTES = 4 * 1024;
+
 const notConfigured = { error: "Push notifications are not configured" } as const;
 
 export const pushRoute = new Hono<AppEnv>()
@@ -31,6 +41,7 @@ export const pushRoute = new Hono<AppEnv>()
     await next();
     c.header("Cache-Control", "no-store");
   })
+  .use(bodyLimit({ maxSize: MAX_BODY_BYTES, onError: (c) => c.json({ error: "Request body too large" }, 413) }))
   .get("/key", (c) => {
     const config = parsePushConfig(c.env);
     if (!config) return c.json(notConfigured, 503);
@@ -42,8 +53,9 @@ export const pushRoute = new Hono<AppEnv>()
     const { subscription, zone, position } = c.req.valid("json");
     const now = c.get("now");
 
-    const created = await saveSubscription(c.env.DB, { ...subscription, zone, position }, now);
-    if (!created) return c.json({ created: false, confirmationSent: false });
+    const saved = await saveSubscription(c.env.DB, { ...subscription, zone, position }, now, MAX_SUBSCRIPTIONS);
+    if (saved === "full") return c.json({ error: "The maximum number of subscriptions has been reached" }, 409);
+    if (saved === "updated") return c.json({ created: false, confirmationSent: false });
 
     // A first push confirms that notifications reach the device.
     const vapid = { publicKey: config.vapidPublicKey, privateKey: config.vapidPrivateKey, subject: config.vapidSubject };

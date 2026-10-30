@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { averagePrice, cheapestWindow } from "./prices";
+import { averagePrice, cheapestWindow, coveredUntil } from "./prices";
 import { HOUR_MS, MINUTE_MS } from "./time";
 import type { PriceInterval } from "./types";
 
@@ -112,5 +112,22 @@ describe("cheapestWindow", () => {
       sekPerKwh: i >= 96 ? 0 : 1,
     }));
     expect(cheapestWindow(prices, start, HOUR_MS, 25 * HOUR_MS)?.start).toBe(start + 24 * HOUR_MS);
+  });
+});
+
+describe("coveredUntil", () => {
+  it("returns the end of the gap-free coverage", () => {
+    const prices = hours([1, 2, 3]);
+    expect(coveredUntil(prices, T0 + 30 * MINUTE_MS, T0 + 8 * HOUR_MS)).toBe(T0 + 3 * HOUR_MS);
+  });
+
+  it("is capped at `to`", () => {
+    expect(coveredUntil(hours([1, 2, 3]), T0, T0 + 2 * HOUR_MS)).toBe(T0 + 2 * HOUR_MS);
+  });
+
+  it("stops at a gap and returns `from` when `from` is not covered", () => {
+    const prices = [...hours([1]), ...hours([1]).map((i) => ({ ...i, start: i.start + 2 * HOUR_MS, end: i.end + 2 * HOUR_MS }))];
+    expect(coveredUntil(prices, T0, T0 + 8 * HOUR_MS)).toBe(T0 + HOUR_MS);
+    expect(coveredUntil(prices, T0 + 90 * MINUTE_MS, T0 + 8 * HOUR_MS)).toBe(T0 + 90 * MINUTE_MS);
   });
 });

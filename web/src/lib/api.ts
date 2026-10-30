@@ -15,6 +15,9 @@ export interface CheapestResponse {
   start: string;
   end: string;
   averageSekPerKwh: number;
+  /** False if prices are only known for part of the period (e.g. tomorrow's are not published yet). */
+  complete: boolean;
+  knownUntil: string;
 }
 
 export interface ThunderResponse {
@@ -51,6 +54,7 @@ async function send<T>(method: "POST" | "DELETE", path: string, body: unknown): 
   try {
     const response = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (response.ok) return { ok: true, data: response.status === 204 ? null : ((await response.json()) as T) };
+    if (response.status === 409) return { ok: false, message: "Tjänsten har nått max antal prenumerationer." };
     return { ok: false, message: response.status === 503 ? "Notiser är inte tillgängliga just nu." : "Något gick fel." };
   } catch {
     return { ok: false, message: "Kunde inte nå tjänsten." };

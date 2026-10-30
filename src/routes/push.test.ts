@@ -2,7 +2,9 @@ import { env } from "cloudflare:workers";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { subscriptionKeys, vapidKeys } from "../../test/pushKeys";
 import { createApp } from "../app";
+import { saveSubscription } from "../db/subscriptions";
 import type { HttpFetcher } from "../integrations/http";
+import { MAX_SUBSCRIPTIONS } from "./push";
 
 const NOW = Date.UTC(2026, 9, 30, 12);
 const ENDPOINT = "https://fcm.googleapis.com/fcm/send/abc123";
@@ -135,5 +137,31 @@ describe("DELETE /api/push/subscribe", () => {
   it("succeeds for an unknown subscription", async () => {
     const response = await appWithPushService().send("DELETE", "/api/push/subscribe", { endpoint: ENDPOINT });
     expect(response.status).toBe(204);
+  });
+});
+
+describe("subscription limits", () => {
+  it(`stores at most ${MAX_SUBSCRIPTIONS} subscriptions but still updates existing ones`, async () => {
+    const push = appWithPushService();
+    for (let n = 0; n < MAX_SUBSCRIPTIONS; n++) {
+      await saveSubscription(env.DB, { endpoint: `https://fcm.googleapis.com/fcm/send/other-${n}`, keys, zone: "SE1", position: null }, NOW, MAX_SUBSCRIPTIONS);
+    }
+
+    const full = await push.send("POST", "/api/push/subscribe", subscribeBody());
+    expect(full.status).toBe(409);
+    expect(push.sent).toEqual([]);
+    expect(await storedRows()).toHaveLength(MAX_SUBSCRIPTIONS);
+
+    const update = await push.send("POST", "/api/push/subscribe", {
+      ...subscribeBody({ zone: "SE2" }),
+      subscription: { endpoint: "https://fcm.googleapis.com/fcm/send/other-0", keys },
+    });
+    expect(update.status).toBe(200);
+  });
+
+  it("rejects a body over 4 KB", async () => {
+    const response = await appWithPushService().send("POST", "/api/push/subscribe", { ...subscribeBody(), padding: "x".repeat(5000) });
+    expect(response.status).toBe(413);
+    expect(await storedRows()).toEqual([]);
   });
 });

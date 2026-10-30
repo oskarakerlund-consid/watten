@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { loadZoneIntervals } from "../db/prices";
-import { cheapestWindow } from "../domain/prices";
+import { cheapestWindow, coveredUntil } from "../domain/prices";
 import { HOUR_MS, toStockholmIso } from "../domain/time";
 import type { AppEnv } from "./types";
 import { validQuery, zoneSchema } from "./validation";
@@ -21,6 +21,8 @@ export const cheapestRoute = new Hono<AppEnv>().get("/", validQuery(querySchema)
   const prices = await loadZoneIntervals(c.env.DB, zone, now, now + periodHours * HOUR_MS);
   const cheapest = cheapestWindow(prices, now, intervalHours * HOUR_MS, periodHours * HOUR_MS);
   if (!cheapest) return c.json({ error: `Not enough known prices for ${zone} in the next ${periodHours} hours` }, 503);
+  // Tomorrow's prices may not be published yet (or the source may be down): then only the known part was searched.
+  const knownUntil = coveredUntil(prices, now, now + periodHours * HOUR_MS);
 
   return c.json({
     zone,
@@ -31,5 +33,8 @@ export const cheapestRoute = new Hono<AppEnv>().get("/", validQuery(querySchema)
     startLocal: toStockholmIso(cheapest.start),
     endLocal: toStockholmIso(cheapest.end),
     averageSekPerKwh: cheapest.averageSekPerKwh,
+    complete: knownUntil === now + periodHours * HOUR_MS,
+    knownUntil: new Date(knownUntil).toISOString(),
+    knownUntilLocal: toStockholmIso(knownUntil),
   });
 });

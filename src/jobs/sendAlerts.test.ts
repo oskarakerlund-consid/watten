@@ -9,7 +9,7 @@ import { HOUR_MS, MINUTE_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
 import type { HttpFetcher } from "../integrations/http";
 import type { Vapid } from "../integrations/webpush";
-import { MAX_PUSHES_PER_RUN, sendAlerts } from "./sendAlerts";
+import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN, sendAlerts } from "./sendAlerts";
 
 // Prices jump at 17:00 Swedish winter time (16:00 UTC); the page turns red at 16:15, so the alert is due from 15:15.
 const JUMP = Date.UTC(2026, 9, 30, 16);
@@ -32,7 +32,7 @@ beforeEach(async () => {
 const endpoint = (n: number) => `https://fcm.googleapis.com/fcm/send/${n}`;
 
 async function subscribe(n: number, zone: Zone, position: { lat: number; lon: number } | null = null) {
-  await saveSubscription(env.DB, { endpoint: endpoint(n), keys, zone, position }, NOW - HOUR_MS + n);
+  await saveSubscription(env.DB, { endpoint: endpoint(n), keys, zone, position }, NOW - HOUR_MS + n, 100);
 }
 
 /** 50 hours at 1 SEK/kWh, then 3 SEK/kWh from JUMP. */
@@ -51,15 +51,33 @@ async function seedForecast(lat: number, lon: number, probabilities: number[]) {
   });
 }
 
-/** A fake push service that answers each endpoint with the next status in `statuses` (default 201). */
+/** A MET response without thunder, covering the next few hours. */
+function metResponse(): Response {
+  const from = Math.floor(NOW / HOUR_MS) * HOUR_MS;
+  const timeseries = [0, 1, 2, 3, 4].map((h) => ({
+    time: new Date(from + h * HOUR_MS).toISOString().replace(".000", ""),
+    data: { next_1_hours: { details: { probability_of_thunder: 0 } } },
+  }));
+  return new Response(JSON.stringify({ properties: { timeseries } }), { headers: { Expires: new Date(NOW + 30 * MINUTE_MS).toUTCString() } });
+}
+
+/**
+ * A fake push service that answers each endpoint with the next status in `statuses` (default 201),
+ * and a fake MET that answers every forecast request.
+ */
 function pushService(statuses: Record<string, number[]> = {}) {
   const sent: string[] = [];
+  const met: string[] = [];
   const fetcher: HttpFetcher = async (url) => {
+    if (url.startsWith("https://api.met.no/")) {
+      met.push(url);
+      return metResponse();
+    }
     if (!url.startsWith("https://fcm.googleapis.com/")) throw new Error(`Unexpected request to ${url}`);
     sent.push(url);
     return new Response(null, { status: statuses[url]?.shift() ?? 201 });
   };
-  return { fetcher, sent, run: (now = NOW) => sendAlerts(env.DB, fetcher, config, vapid, now) };
+  return { fetcher, sent, met, run: (now = NOW) => sendAlerts(env.DB, fetcher, config, vapid, now) };
 }
 
 const sentRows = async () =>
@@ -135,10 +153,28 @@ describe("sendAlerts", () => {
     expect(await push.run(NOW + 15 * MINUTE_MS)).toMatchObject({ sent: 1 });
   });
 
-  it("skips thunder for a position whose forecast is unavailable", async () => {
-    await subscribe(1, "SE3", { lat: 57.7, lon: 11.97 });
+  it(`refreshes at most ${MAX_FORECAST_REFRESHES_PER_RUN} expired forecasts per run`, async () => {
+    for (let n = 1; n <= 4; n++) await subscribe(n, "SE3", { lat: 57 + n / 10, lon: 12 });
     const push = pushService();
-    expect(await push.run()).toMatchObject({ sent: 0, failed: 0 });
+
+    await push.run();
+    expect(push.met).toHaveLength(MAX_FORECAST_REFRESHES_PER_RUN);
+    await push.run(NOW + 5 * MINUTE_MS);
+    expect(new Set(push.met).size).toBe(4);
+  });
+
+  it("uses an expired cached forecast for positions not refreshed this run", async () => {
+    // Two positions need a refresh first (never fetched), so the expired thunder forecast is used as it is.
+    await subscribe(1, "SE3", { lat: 57.1, lon: 12 });
+    await subscribe(2, "SE3", { lat: 57.2, lon: 12 });
+    await subscribe(3, "SE3", { lat: 57.7, lon: 11.97 });
+    await seedForecast(57.7, 11.97, [0, 40, 0, 0]);
+    await env.DB.prepare("UPDATE forecast_cache SET expires_utc = ?1").bind(NOW - MINUTE_MS).run();
+
+    const push = pushService();
+    expect(await push.run()).toMatchObject({ sent: 1 });
+    expect(push.sent).toEqual([endpoint(3)]);
+    expect(push.met).not.toContain("https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=57.7&lon=11.97");
   });
 
   it("deletes sent records together with the subscription", async () => {

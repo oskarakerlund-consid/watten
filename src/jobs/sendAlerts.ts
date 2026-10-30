@@ -1,4 +1,5 @@
 import type { Config } from "../config";
+import { loadForecasts } from "../db/forecastCache";
 import { deleteSentBefore, loadSentAlerts, recordSentStatement } from "../db/notifications";
 import { loadIntervals } from "../db/prices";
 import { deleteSubscription, loadSubscriptions, type StoredSubscription } from "../db/subscriptions";
@@ -12,9 +13,16 @@ import { getThunderForecast } from "../services/thunderForecast";
 
 /**
  * Each push costs a few ms of CPU, and a Free-plan invocation may use 10 ms. Alerts left over are sent on the next
- * run, 15 minutes later, which is still before the period starts (the lead times are 1 and 2 hours).
+ * run, 5 minutes later. A price period is first seen about an hour ahead, so about 11 runs (33 pushes) fit before
+ * it starts, which covers MAX_SUBSCRIPTIONS (25).
  */
 export const MAX_PUSHES_PER_RUN = 3;
+
+/**
+ * Expired forecasts refreshed from MET per run, oldest first. Each refresh is up to three subrequests and a few ms
+ * of CPU to parse. Other positions use their cached forecast until their turn, a few runs later.
+ */
+export const MAX_FORECAST_REFRESHES_PER_RUN = 2;
 
 /** How far back stored alerts are read: longer than any cooldown, and covers thunder that has already started. */
 const SENT_LOOKBACK_MS = 12 * HOUR_MS;
@@ -66,18 +74,24 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
     priceAlerts.set(zone, duePriceAlert(zone, zoneIntervals, now, config));
   }
 
+  // One D1 query for all cached forecasts; only a few expired ones are refreshed from MET per run.
+  const positions = new Map(subscriptions.map((s) => [positionKey(thunderPosition(s)), thunderPosition(s)]));
+  const cached = await loadForecasts(db, [...positions.values()]);
   const thunderAlerts = new Map<string, Alert | null>();
-  for (const subscription of subscriptions) {
-    const position = thunderPosition(subscription);
-    const key = positionKey(position);
-    if (thunderAlerts.has(key)) continue;
-    try {
-      const forecast = await getThunderForecast(db, fetcher, config.metUserAgent, position.lat, position.lon, now);
-      thunderAlerts.set(key, dueThunderAlert(forecast.hours, now, config.thunderProbabilityPercent));
-    } catch (error) {
-      console.error("Thunder forecast unavailable for alerts", error);
-      thunderAlerts.set(key, null);
+  const expiresAt = (key: string) => cached.get(key)?.expires ?? 0; // 0: not cached yet, refreshed first
+  const expired = [...positions].filter(([key]) => expiresAt(key) <= now).sort(([a], [b]) => expiresAt(a) - expiresAt(b));
+  const toRefresh = new Set(expired.slice(0, MAX_FORECAST_REFRESHES_PER_RUN).map(([key]) => key));
+
+  for (const [key, position] of positions) {
+    let hours = cached.get(key)?.hours ?? null;
+    if (toRefresh.has(key)) {
+      try {
+        hours = (await getThunderForecast(db, fetcher, config.metUserAgent, position.lat, position.lon, now)).hours;
+      } catch (error) {
+        console.error("Thunder forecast unavailable for alerts", error);
+      }
     }
+    thunderAlerts.set(key, hours ? dueThunderAlert(hours, now, config.thunderProbabilityPercent) : null);
   }
 
   const sentBefore = await loadSentAlerts(db, now - SENT_LOOKBACK_MS);

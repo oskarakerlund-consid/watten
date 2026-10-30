@@ -28,7 +28,16 @@ describe("GET /api/cheapest", () => {
       startLocal: "2026-10-16T17:00:00+02:00",
       endLocal: "2026-10-16T19:00:00+02:00",
       averageSekPerKwh: 1,
+      complete: true,
+      knownUntil: "2026-10-16T20:00:00.000Z",
+      knownUntilLocal: "2026-10-16T22:00:00+02:00",
     });
+  });
+
+  it("marks the answer incomplete when prices end within the period", async () => {
+    // Prices are seeded for 12 hours; a 24-hour period only knows the first 12.
+    const body = await (await get("/api/cheapest?zone=SE3&period=24")).json();
+    expect(body).toMatchObject({ complete: false, knownUntil: new Date(NOW + 12 * HOUR_MS).toISOString(), averageSekPerKwh: 0 });
   });
 
   it("uses the given period", async () => {
