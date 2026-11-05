@@ -5,7 +5,7 @@ import { loadIntervals } from "../db/prices";
 import { deleteSubscription, loadSubscriptions } from "../db/subscriptions";
 import { type Alert, alreadySent, duePriceAlert, dueThunderAlert } from "../domain/alerts";
 import type { Position } from "../domain/position";
-import { HOUR_MS, MINUTE_MS } from "../domain/time";
+import { HOUR_MS, QUARTER_HOUR_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
 import { thunderPosition } from "../domain/zones";
 import type { HttpFetcher } from "../integrations/http";
@@ -55,9 +55,9 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
   const intervals = await loadIntervals(
     db,
     // The trailing window of the earliest quarter-hour, which starts up to 15 minutes before `now`.
-    now - config.averageWindowHours * HOUR_MS - 15 * MINUTE_MS,
+    now - config.averageWindowHours * HOUR_MS - QUARTER_HOUR_MS,
     // The hour after the latest quarter-hour (at the lead time), plus one quarter-hour of margin.
-    now + config.priceAlertLeadMs + HOUR_MS + 15 * MINUTE_MS,
+    now + config.priceAlertLeadMs + HOUR_MS + QUARTER_HOUR_MS,
   );
   const priceAlerts = new Map<Zone, Alert | null>();
   for (const zone of new Set(subscriptions.map((s) => s.zone))) {

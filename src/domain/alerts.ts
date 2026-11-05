@@ -1,9 +1,7 @@
 import { type ClassificationSettings, classifyPrice } from "./classify";
 import { assessThunder, type ThunderHour } from "./thunder";
-import { MINUTE_MS, stockholmClock, stockholmTimeOfDay } from "./time";
+import { QUARTER_HOUR_MS, stockholmClock, stockholmTimeOfDay } from "./time";
 import type { PriceInterval, Zone } from "./types";
-
-const STEP_MS = 15 * MINUTE_MS;
 
 export type AlertKind = "cheap" | "expensive" | "thunder";
 
@@ -47,10 +45,10 @@ export function duePriceAlert(
   settings: PriceAlertSettings,
 ): Alert | null {
   if (isPriceQuietTime(now, settings.priceAlertQuietFromHour, settings.priceAlertQuietToHour)) return null;
-  const firstStep = Math.floor(now / STEP_MS) * STEP_MS + STEP_MS;
-  let previous = classifyPrice(intervals, firstStep - STEP_MS, settings)?.level ?? null;
+  const firstStep = Math.floor(now / QUARTER_HOUR_MS) * QUARTER_HOUR_MS + QUARTER_HOUR_MS;
+  let previous = classifyPrice(intervals, firstStep - QUARTER_HOUR_MS, settings)?.level ?? null;
 
-  for (let start = firstStep; start <= now + settings.priceAlertLeadMs; start += STEP_MS) {
+  for (let start = firstStep; start <= now + settings.priceAlertLeadMs; start += QUARTER_HOUR_MS) {
     const status = classifyPrice(intervals, start, settings);
     const level = status?.level ?? null;
     // An unknown previous level (missing prices) is not a change: the period may already have been going on.

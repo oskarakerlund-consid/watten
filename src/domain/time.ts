@@ -1,6 +1,8 @@
 import type { LocalDate } from "./types";
 
 export const MINUTE_MS = 60_000;
+/** The length of a price interval since 2025-10-01, and the step at which price alerts are checked. */
+export const QUARTER_HOUR_MS = 15 * MINUTE_MS;
 export const HOUR_MS = 60 * MINUTE_MS;
 
 /** Swedish local time. The frontend formats times in it too. */
