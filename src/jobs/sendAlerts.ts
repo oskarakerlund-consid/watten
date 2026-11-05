@@ -2,12 +2,12 @@ import type { Config } from "../config";
 import { loadForecasts } from "../db/forecastCache";
 import { deleteSentBefore, loadSentAlerts, recordSent } from "../db/notifications";
 import { loadIntervals } from "../db/prices";
-import { deleteSubscription, loadSubscriptions, type StoredSubscription } from "../db/subscriptions";
+import { deleteSubscription, loadSubscriptions } from "../db/subscriptions";
 import { type Alert, alreadySent, duePriceAlert, dueThunderAlert } from "../domain/alerts";
 import type { Position } from "../domain/position";
 import { HOUR_MS, MINUTE_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
-import { ZONE_INFO } from "../domain/zones";
+import { thunderPosition } from "../domain/zones";
 import type { HttpFetcher } from "../integrations/http";
 import { type PushOptions, sendPush, type Vapid } from "../integrations/webpush";
 import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN } from "../limits";
@@ -29,11 +29,6 @@ export interface AlertRunResult {
   deferred: number;
   /** Alerts that were sent but could not be recorded, so they will be sent again. */
   unrecorded: number;
-}
-
-/** The position a subscriber's thunder forecast is for: their own, or the zone's representative city. */
-function thunderPosition(subscription: StoredSubscription): Position {
-  return subscription.position ?? ZONE_INFO[subscription.zone];
 }
 
 const positionKey = ({ lat, lon }: Position) => `${lat},${lon}`;
@@ -71,7 +66,12 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
   }
 
   // One D1 query for all cached forecasts; only a few expired ones are refreshed from MET per run.
-  const positions = new Map(subscriptions.map((s) => [positionKey(thunderPosition(s)), thunderPosition(s)]));
+  const positions = new Map(
+    subscriptions.map((s) => {
+      const position = thunderPosition(s.zone, s.position);
+      return [positionKey(position), position];
+    }),
+  );
   const cached = await loadForecasts(db, [...positions.values()]);
   const thunderAlerts = new Map<string, Alert | null>();
   const expiresAt = (key: string) => cached.get(key)?.expires ?? 0; // 0: not cached yet, refreshed first
@@ -96,7 +96,8 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
   for (const subscription of subscriptions) {
     const sent = sentBefore.get(subscription.endpoint) ?? [];
     // Thunder first: it matters more if the push budget runs out.
-    const due = [thunderAlerts.get(positionKey(thunderPosition(subscription))), priceAlerts.get(subscription.zone)].filter(
+    const thunderKey = positionKey(thunderPosition(subscription.zone, subscription.position));
+    const due = [thunderAlerts.get(thunderKey), priceAlerts.get(subscription.zone)].filter(
       (alert): alert is Alert => alert != null && !alreadySent(alert, sent, config.alertCooldownMs),
     );
 

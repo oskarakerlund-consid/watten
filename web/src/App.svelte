@@ -5,7 +5,7 @@
   import { syncPush } from "./lib/push";
   import { browserStorage, loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
   import zoneData from "./lib/zones/zones.json";
-  import { ZONE_INFO, type Zone } from "./lib/zones";
+  import { thunderPosition, ZONE_INFO, type Zone } from "./lib/zones";
   import PriceHeadline from "./components/PriceHeadline.svelte";
   import CheapestCard from "./components/CheapestCard.svelte";
   import ThunderCard from "./components/ThunderCard.svelte";
@@ -34,7 +34,7 @@
 
   const level = $derived(status?.ok ? status.data.level : "unknown");
   /** Where the thunder forecast is for: the user's position, or the zone's representative city. */
-  const thunderPlace = $derived(position ?? (zone ? ZONE_INFO[zone] : null));
+  const thunderPlace = $derived(zone ? thunderPosition(zone, position) : position);
 
   function chooseZone(next: Zone) {
     zone = next;
