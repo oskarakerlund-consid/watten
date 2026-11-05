@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { LocalDate, PriceInterval, Zone } from "../domain/types";
-import type { HttpFetcher } from "./http";
+import { type HttpFetcher, upstreamTimeout } from "./http";
 
 const BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices";
 
@@ -24,11 +24,12 @@ export function dayPricesUrl(zone: Zone, date: LocalDate): string {
 
 /**
  * Fetches the prices for one Swedish calendar day and zone.
- * Returns `not-available` when the day is not published yet (HTTP 404); throws on other errors or invalid data.
+ * Returns `not-available` when the day is not published yet (HTTP 404); throws on other errors, invalid data
+ * and timeouts.
  */
 export async function fetchDayPrices(fetcher: HttpFetcher, zone: Zone, date: LocalDate): Promise<DayPricesResult> {
   const url = dayPricesUrl(zone, date);
-  const response = await fetcher(url);
+  const response = await fetcher(url, { signal: upstreamTimeout() });
 
   if (response.status === 404) return { status: "not-available" };
   if (!response.ok) throw new Error(`Elpriset just nu responded ${response.status} for ${url}`);

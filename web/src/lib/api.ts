@@ -31,6 +31,9 @@ export interface ThunderResponse {
 /** Either the data or a message to show instead. */
 export type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 
+/** Longer than the API's own upstream timeout, so its error response arrives first. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 /**
  * Fetches JSON from the API. A failed request (offline, server unreachable) and a response that is not the
  * expected JSON get different messages, so the user can tell whether to check their connection.
@@ -38,8 +41,11 @@ export type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 async function request<T>(url: string, init: RequestInit, errorMessage: (status: number) => string): Promise<Result<T>> {
   let response: Response;
   try {
-    response = await fetch(url, init);
-  } catch {
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      return { ok: false, message: "Tjänsten svarade inte i tid. Försök igen om en stund." };
+    }
     return { ok: false, message: "Kunde inte nå tjänsten. Kontrollera din internetanslutning." };
   }
   if (!response.ok) return { ok: false, message: errorMessage(response.status) };

@@ -18,6 +18,9 @@ describe("API client", () => {
     stubFetch(() => Promise.reject(new TypeError("Failed to fetch")));
     expect(await fetchStatus("SE3")).toMatchObject({ ok: false, message: expect.stringContaining("internetanslutning") });
 
+    stubFetch(() => Promise.reject(new DOMException("timed out", "TimeoutError")));
+    expect(await fetchStatus("SE3")).toMatchObject({ ok: false, message: expect.stringContaining("svarade inte i tid") });
+
     stubFetch(async () => new Response("<html>"));
     expect(await fetchStatus("SE3")).toMatchObject({ ok: false, message: expect.stringContaining("oväntat svar") });
   });

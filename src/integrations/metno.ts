@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ThunderHour } from "../domain/thunder";
-import type { HttpFetcher } from "./http";
+import { type HttpFetcher, upstreamTimeout } from "./http";
 
 const BASE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/complete";
 
@@ -39,7 +39,7 @@ function expiresAt(response: Response, now: number): number {
 /**
  * Fetches MET Norway's complete forecast for a position and extracts the hourly probability of thunder.
  * Sends the identifying `User-Agent` MET requires and `If-Modified-Since` when given.
- * Throws on HTTP errors (including 429) and invalid data.
+ * Throws on HTTP errors (including 429), invalid data and timeouts.
  */
 export async function fetchThunderForecast(
   fetcher: HttpFetcher,
@@ -53,7 +53,7 @@ export async function fetchThunderForecast(
   const headers: Record<string, string> = { "User-Agent": userAgent };
   if (ifModifiedSince) headers["If-Modified-Since"] = ifModifiedSince;
 
-  const response = await fetcher(url, { headers });
+  const response = await fetcher(url, { headers, signal: upstreamTimeout() });
   if (response.status === 304) return { status: "not-modified", expires: expiresAt(response, now) };
   if (!response.ok) throw new Error(`MET Norway responded ${response.status} for ${url}`);
 

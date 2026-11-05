@@ -1,5 +1,5 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
-import type { HttpFetcher } from "./http";
+import { type HttpFetcher, upstreamTimeout } from "./http";
 
 /** Where and how to send a push: the browser's subscription. */
 export interface PushTarget {
@@ -65,7 +65,12 @@ export async function sendPush(
     { ...target, expirationTime: null },
     vapid,
   );
-  const response = await fetcher(target.endpoint, { method: "POST", headers: request.headers, body: request.body });
+  const response = await fetcher(target.endpoint, {
+    method: "POST",
+    headers: request.headers,
+    body: request.body,
+    signal: upstreamTimeout(),
+  });
   await response.body?.cancel();
   if (response.ok) return "sent";
   if (response.status === 404 || response.status === 410) return "gone";
