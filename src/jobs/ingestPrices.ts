@@ -87,6 +87,10 @@ export async function ingestPrices(
     errors.push(new Error("Failed to store prices", { cause: error }));
   }
 
-  if (errors.length > 0) throw new AggregateError(errors, `Price ingestion failed with ${errors.length} error(s)`);
+  if (errors.length > 0) {
+    // Logs may only show the AggregateError's own message, so each error and its cause are logged too.
+    for (const error of errors) console.error(error);
+    throw new AggregateError(errors, `Price ingestion failed with ${errors.length} error(s)`);
+  }
   return result;
 }
