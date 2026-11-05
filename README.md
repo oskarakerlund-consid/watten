@@ -114,6 +114,11 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | [`svelte-check`](https://github.com/sveltejs/language-tools) | dev | Type checking of `.svelte` files | MIT |
 | [`vitest`](https://github.com/vitest-dev/vitest) | dev | Test runner | MIT |
 | [`@cloudflare/vitest-plugin`](https://github.com/cloudflare/workers-sdk) | dev | Runs tests inside the Workers runtime | MIT |
+| [`eslint`](https://github.com/eslint/eslint) | dev | Linting | MIT |
+| [`@eslint/js`](https://github.com/eslint/eslint) | dev | ESLint's recommended JavaScript rules | MIT |
+| [`typescript-eslint`](https://github.com/typescript-eslint/typescript-eslint) | dev | ESLint parser and rules for TypeScript | MIT |
+| [`eslint-plugin-svelte`](https://github.com/sveltejs/eslint-plugin-svelte) | dev | ESLint rules for `.svelte` files | MIT |
+| [`globals`](https://github.com/sindresorhus/globals) | dev | Browser, service worker and Node globals for the ESLint config | MIT |
 
 ## Free-tier limits
 
@@ -140,6 +145,7 @@ npm run dev:web    # optional, in a second terminal: frontend with hot reload on
 npm test           # runs the tests in the Workers runtime
 npm run test:live  # manual checks against the real upstream APIs (needs network)
 npm run typecheck  # generates Worker types, type-checks the Worker and the Svelte app
+npm run lint       # ESLint on the Worker, the Svelte app, tests and scripts (eslint.config.js)
 ```
 
 To run the cron jobs locally, start `npm run dev` and trigger them with `curl "localhost:8787/cdn-cgi/local/scheduled?cron=*/15+*+*+*+*"` (price ingestion) or `curl "localhost:8787/cdn-cgi/local/scheduled?cron=2,7,12,17,22,27,32,37,42,47,52,57+*+*+*+*"` (alerts). The `cron` parameter must match a trigger in `wrangler.jsonc`. Inspect the result with `npx wrangler d1 execute watten --local --command "select zone, count(*) from prices group by zone"`.
@@ -174,10 +180,26 @@ Requires a free Cloudflare account and `npx wrangler login`.
 1. Create the database once: `npx wrangler d1 create watten`, and put the returned `database_id` in `wrangler.jsonc` (the ID is not a secret).
 2. Apply the schema: `npx wrangler d1 migrations apply watten --remote`. Run it again whenever a new file is added to `migrations/`.
 3. Web Push, once: run `node scripts/vapid-keys.mjs`, put `VAPID_PUBLIC_KEY` in `wrangler.jsonc`, and set the private key with `npx wrangler secret put VAPID_PRIVATE_KEY` (paste the value when asked).
-4. Deploy: `npm run deploy` (builds the frontend, then runs `wrangler deploy`). The first deploy may ask you to register a `workers.dev` subdomain; the app is then served on `https://watten.<subdomain>.workers.dev`.
+4. Deploy: `npm run deploy` (builds the frontend, then runs `wrangler deploy`), or let GitHub Actions do it (see below). The first deploy may ask you to register a `workers.dev` subdomain; the app is then served on `https://watten.<subdomain>.workers.dev`.
 5. Cron Trigger changes can take up to 15 minutes to take effect. The first price ingestion runs at the next quarter-hour after that; until then `/api/status` answers `503`.
 
 Configuration lives in `wrangler.jsonc` (see [Configuration](#configuration)); values edited in the Cloudflare dashboard are overwritten by the next deploy.
+
+### Continuous integration and deployment
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request against `main`:
+
+- **check** (all runs): `npm ci`, `npm run lint`, `npm run typecheck`, `npm test` and `npm run build:web`. Any failing step fails the run. The live API tests are not run in CI.
+- **deploy** (only pushes to `main`, after **check** passes): builds the frontend, applies new D1 migrations (`wrangler d1 migrations apply watten --remote`) and runs `wrangler deploy`. Deploys never run in parallel.
+
+The deploy job uses the GitHub environment `production` (Settings → Environments). Restrict its deployment branches to `main` and add two environment secrets there; only the deploy job can read them:
+
+| Secret | Value |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | A custom Cloudflare API token limited to your account, with *Account → Workers Scripts → Edit* (deploy) and *Account → D1 → Edit* (migrations). If the deploy fails with an authentication error, add *Account → Account Settings → Read*. |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID (shown in the dashboard's Workers overview). |
+
+`VAPID_PRIVATE_KEY` stays a Worker secret in Cloudflare (step 3 above); `wrangler deploy` keeps it and it is never needed in GitHub. Steps 1 and 3 above are still done once by hand.
 
 ## Privacy
 
