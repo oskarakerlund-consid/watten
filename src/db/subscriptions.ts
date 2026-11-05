@@ -12,6 +12,7 @@ export type SaveResult = "created" | "updated" | "full";
 /**
  * Stores a subscription, or updates its keys, zone and position if the endpoint is already stored.
  * A new subscription is only stored while there are fewer than `limit`; the count and the insert are one statement.
+ * Safe when two requests store the same endpoint at once: one creates it, the other updates it.
  */
 export async function saveSubscription(
   db: D1Database,
@@ -27,11 +28,14 @@ export async function saveSubscription(
     subscription.position?.lat ?? null,
     subscription.position?.lon ?? null,
   ];
-  const updated = await db
-    .prepare("UPDATE push_subscriptions SET p256dh = ?2, auth = ?3, zone = ?4, lat = ?5, lon = ?6 WHERE endpoint = ?1")
-    .bind(...values)
-    .run();
-  if (updated.meta.changes > 0) return "updated";
+  const update = async () =>
+    (
+      await db
+        .prepare("UPDATE push_subscriptions SET p256dh = ?2, auth = ?3, zone = ?4, lat = ?5, lon = ?6 WHERE endpoint = ?1")
+        .bind(...values)
+        .run()
+    ).meta.changes > 0;
+  if (await update()) return "updated";
 
   const inserted = await db
     .prepare(
@@ -41,7 +45,10 @@ export async function saveSubscription(
     )
     .bind(...values, now, limit)
     .run();
-  return inserted.meta.changes > 0 ? "created" : "full";
+  if (inserted.meta.changes > 0) return "created";
+  // Nothing inserted: either the limit is reached, or a concurrent request stored the same endpoint in between
+  // (ON CONFLICT DO NOTHING). Updating again tells the two apart.
+  return (await update()) ? "updated" : "full";
 }
 
 export async function deleteSubscription(db: D1Database, endpoint: string): Promise<void> {
