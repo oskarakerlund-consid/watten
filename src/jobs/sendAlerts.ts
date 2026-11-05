@@ -121,9 +121,16 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
         continue;
       }
       if (outcome === "gone") {
-        await deleteSubscription(db, subscription.endpoint);
-        goneEndpoints.add(subscription.endpoint);
-        result.gone++;
+        // A failed delete must not stop the run: the pushes already sent still have to be recorded below.
+        // The subscription is kept, so the push service reports it gone again on a later run.
+        try {
+          await deleteSubscription(db, subscription.endpoint);
+          goneEndpoints.add(subscription.endpoint);
+          result.gone++;
+        } catch (error) {
+          console.error("Could not delete a gone subscription", error);
+          result.failed++;
+        }
         break;
       }
       delivered.push({ endpoint: subscription.endpoint, alert });

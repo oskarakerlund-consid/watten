@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { failingDb } from "../../test/failingDb";
 import { seedHourlyPrices } from "../../test/seedPrices";
 import { subscriptionKeys, vapidKeys } from "../../test/pushKeys";
 import { parseConfig } from "../config";
@@ -140,6 +141,17 @@ describe("sendAlerts", () => {
     expect(await push.run()).toMatchObject({ sent: 1, gone: 1 });
     expect((await env.DB.prepare("SELECT count(*) AS n FROM push_subscriptions").first())?.n).toBe(0);
     expect(await sentRows()).toEqual([]);
+  });
+
+  it("still records sent alerts when a gone subscription cannot be deleted", async () => {
+    await seedExpensiveAt17("SE3");
+    await seedForecast(59.33, 18.07, [0, 50, 0, 0]);
+    await subscribe(1, "SE3");
+
+    const { fetcher } = pushService({ [endpoint(1)]: [201, 410] });
+    const db = failingDb("DELETE FROM push_subscriptions");
+    expect(await sendAlerts(db, fetcher, config, vapid, NOW)).toMatchObject({ sent: 1, gone: 0, failed: 1 });
+    expect(await sentRows()).toMatchObject([{ endpoint: endpoint(1), kind: "thunder" }]);
   });
 
   it("retries a failed push on the next run", async () => {
