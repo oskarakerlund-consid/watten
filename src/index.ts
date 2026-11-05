@@ -1,13 +1,11 @@
 import { createApp } from "./app";
 import { parseConfig, parsePushConfig } from "./config";
+import { ALERTS_CRON, PRICE_CRON } from "./crons";
 import { historyDaysFor, ingestPrices } from "./jobs/ingestPrices";
 import { sendAlerts } from "./jobs/sendAlerts";
 
 const app = createApp();
 
-/** Must match `triggers.crons` in wrangler.jsonc. Alerts run every 5 minutes, 2 minutes after each price ingestion. */
-const PRICE_CRON = "*/15 * * * *";
-const ALERTS_CRON = "2,7,12,17,22,27,32,37,42,47,52,57 * * * *";
 
 export default {
   fetch: app.fetch,

@@ -70,6 +70,7 @@ Code layout under `src/`:
 | `src/routes/` | HTTP routes (Hono) with request validation. The data routes only read from D1 and never call the price API; the push routes store subscriptions and send the confirmation push. |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification, which alerts are due, zone fallback positions. |
 | `src/config.ts` | Parsing and validation of the Worker vars. |
+| `src/crons.ts` | The Cron Trigger schedules. A test checks that they match `wrangler.jsonc`. |
 | `web/` | The Svelte frontend: `src/App.svelte`, `src/components/`, and `src/lib/` (API client, settings, formatting, geolocation, push). `public/` holds the service worker, the manifest and `_headers`. |
 | `web/src/lib/zones/` | Price-zone polygons and the zone lookup used by the frontend. |
 | `scripts/` | Developer scripts: producing the zone data, looking up a zone for a position, generating VAPID keys. |
