@@ -15,7 +15,7 @@ describe("parseConfig", () => {
   });
 
   it("requires the MET User-Agent", () => {
-    expect(() => parseConfig({})).toThrow();
+    expect(() => parseConfig({})).toThrow(/Invalid Worker vars[\s\S]*MET_USER_AGENT/);
   });
 
   it("converts öre to SEK and accepts numbers given as strings", () => {

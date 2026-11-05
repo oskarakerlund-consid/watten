@@ -23,13 +23,15 @@ export interface Config {
 
 /** Reads tunable values from the Worker's vars (`wrangler.jsonc`). Throws if a value is invalid. */
 export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchema>, unknown>>): Config {
-  const vars = configSchema.parse({
+  const result = configSchema.safeParse({
     MIN_PRICE_DIFF_ORE_PER_KWH: env.MIN_PRICE_DIFF_ORE_PER_KWH,
     PRICE_DIFF_PERCENT: env.PRICE_DIFF_PERCENT,
     AVERAGE_WINDOW_HOURS: env.AVERAGE_WINDOW_HOURS,
     THUNDER_PROBABILITY_PERCENT: env.THUNDER_PROBABILITY_PERCENT,
     MET_USER_AGENT: env.MET_USER_AGENT,
   });
+  if (!result.success) throw new Error(`Invalid Worker vars in wrangler.jsonc:\n${z.prettifyError(result.error)}`);
+  const vars = result.data;
   return {
     minPriceDiffSekPerKwh: vars.MIN_PRICE_DIFF_ORE_PER_KWH / 100,
     priceDiffPercent: vars.PRICE_DIFF_PERCENT,
