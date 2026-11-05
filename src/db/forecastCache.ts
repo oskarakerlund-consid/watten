@@ -63,7 +63,12 @@ export async function extendForecast(db: D1Database, lat: number, lon: number, e
   await db.prepare("UPDATE forecast_cache SET expires_utc = ?3 WHERE lat = ?1 AND lon = ?2").bind(lat, lon, expires).run();
 }
 
-/** Cached forecasts for several (rounded) positions in one query, keyed by `"lat,lon"`. */
+/**
+ * Cached forecasts for several (rounded) positions in one query, keyed by `"lat,lon"`.
+ * The positions are passed as one JSON array of `[lat, lon]` pairs and joined with `json_each`. The join compares
+ * REAL values for equality, which is exact because every stored and requested position is rounded the same way
+ * (two decimals, `src/routes/validation.ts`) before it reaches the database.
+ */
 export async function loadForecasts(
   db: D1Database,
   positions: readonly { lat: number; lon: number }[],
