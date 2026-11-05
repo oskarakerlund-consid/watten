@@ -33,19 +33,18 @@ function parseHours(raw: string): ThunderHour[] | null {
   return null;
 }
 
+/** The forecast stored in a row, or null if the row is corrupt. */
+function toCachedForecast(row: ForecastRow): CachedForecast | null {
+  const hours = parseHours(row.hours);
+  return hours && { hours, expires: row.expires_utc, lastModified: row.last_modified, fetched: row.fetched_utc };
+}
+
 export async function loadForecast(db: D1Database, lat: number, lon: number): Promise<CachedForecast | null> {
   const row = await db
     .prepare("SELECT hours, expires_utc, last_modified, fetched_utc FROM forecast_cache WHERE lat = ?1 AND lon = ?2")
     .bind(lat, lon)
     .first<ForecastRow>();
-  const hours = row ? parseHours(row.hours) : null;
-  if (!row || !hours) return null;
-  return {
-    hours,
-    expires: row.expires_utc,
-    lastModified: row.last_modified,
-    fetched: row.fetched_utc,
-  };
+  return row && toCachedForecast(row);
 }
 
 export async function saveForecast(db: D1Database, lat: number, lon: number, forecast: CachedForecast): Promise<void> {
@@ -83,8 +82,8 @@ export async function loadForecasts(
     .all<ForecastRow & { lat: number; lon: number }>();
   const forecasts = new Map<string, CachedForecast>();
   for (const row of results) {
-    const hours = parseHours(row.hours);
-    if (hours) forecasts.set(`${row.lat},${row.lon}`, { hours, expires: row.expires_utc, lastModified: row.last_modified, fetched: row.fetched_utc });
+    const forecast = toCachedForecast(row);
+    if (forecast) forecasts.set(`${row.lat},${row.lon}`, forecast);
   }
   return forecasts;
 }
