@@ -67,7 +67,7 @@ Code layout under `src/`:
 | --- | --- |
 | `src/index.ts` | Worker entry point: HTTP and scheduled handlers. |
 | `src/app.ts` | The Hono app: middleware, route mounting, error handling. |
-| `src/routes/` | HTTP routes (Hono) with request validation. The data routes only read from D1 and never call the price API; the push routes store subscriptions and send the confirmation push. |
+| `src/routes/` | HTTP routes (Hono) with request validation. The data routes only read from D1 and never call the price API; the push routes store subscriptions and send the confirmation push. `contract.ts` holds the JSON body types, shared with the frontend. |
 | `src/domain/` | Pure business logic, no I/O: zones, Swedish time and DST, time-weighted price averages, cheapest-window search, price classification, which alerts are due, zone fallback positions. |
 | `src/config.ts` | Parsing and validation of the Worker vars. |
 | `src/limits.ts` | Limits that keep the Worker within the Free plan: subscriptions, pushes and forecast refreshes per alert run. |

@@ -1,33 +1,8 @@
 import type { Position } from "../../../src/domain/position";
+import type { CheapestResponse, PriceStatusResponse, ThunderResponse } from "../../../src/routes/contract";
 import type { Zone } from "./zones";
 
-export type PriceLevel = "cheap" | "normal" | "expensive";
-
-export interface PriceStatusResponse {
-  zone: Zone;
-  level: PriceLevel;
-  currentSekPerKwh: number;
-  averageSekPerKwh: number;
-  thresholdSekPerKwh: number;
-  averageWindowHours: number;
-}
-
-export interface CheapestResponse {
-  start: string;
-  end: string;
-  averageSekPerKwh: number;
-  /** False if prices are only known for part of the period (e.g. tomorrow's are not published yet). */
-  complete: boolean;
-  knownUntil: string;
-}
-
-export interface ThunderResponse {
-  expected: boolean;
-  start: string | null;
-  end: string | null;
-  maxProbabilityPercent: number;
-  stale: boolean;
-}
+export type { CheapestResponse, PriceStatusResponse, ThunderResponse };
 
 /** Either the data or a message to show instead. */
 export type Result<T> = { ok: true; data: T } | { ok: false; message: string };
