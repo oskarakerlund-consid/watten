@@ -1,6 +1,6 @@
-import { isInSwedenBounds, type Position } from "../../../src/domain/position";
+import { isInSwedenBounds, type Position, roundPosition } from "../../../src/domain/position";
 
-export type { Position };
+export { type Position, roundPosition };
 import { isZone, type Zone } from "./zones";
 
 export interface Settings {
@@ -10,12 +10,6 @@ export interface Settings {
 
 const ZONE_KEY = "watten.zone";
 const POSITION_KEY = "watten.position";
-
-/** Rounds to two decimals (about 1 km), so a precise position is never stored or sent. */
-export const roundPosition = ({ lat, lon }: Position): Position => ({
-  lat: Math.round(lat * 100) / 100,
-  lon: Math.round(lon * 100) / 100,
-});
 
 /**
  * The browser's `localStorage`, or null if it is blocked. Some browsers throw already when the property is read,

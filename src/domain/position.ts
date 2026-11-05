@@ -14,3 +14,11 @@ export function isInSwedenBounds(lat: number, lon: number): boolean {
   const b = SWEDEN_BOUNDS;
   return lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon;
 }
+
+/**
+ * Rounds a coordinate to two decimals, about 1 km. Positions are always rounded before they are stored or sent:
+ * it protects privacy and lets nearby users share cached forecasts.
+ */
+export const roundCoordinate = (value: number) => Math.round(value * 100) / 100;
+
+export const roundPosition = ({ lat, lon }: Position): Position => ({ lat: roundCoordinate(lat), lon: roundCoordinate(lon) });
