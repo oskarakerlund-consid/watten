@@ -3,7 +3,8 @@ import type { LocalDate } from "./types";
 export const MINUTE_MS = 60_000;
 export const HOUR_MS = 60 * MINUTE_MS;
 
-const TIME_ZONE = "Europe/Stockholm";
+/** Swedish local time. The frontend formats times in it too. */
+export const TIME_ZONE = "Europe/Stockholm";
 
 /** Zero-pads to two digits, e.g. `7` → `07`. */
 export const pad2 = (n: number) => String(n).padStart(2, "0");
