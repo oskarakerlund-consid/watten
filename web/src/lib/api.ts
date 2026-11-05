@@ -31,15 +31,29 @@ export interface ThunderResponse {
 /** Either the data or a message to show instead. */
 export type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 
-async function get<T>(path: string, params: Record<string, string | number>): Promise<Result<T>> {
-  const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
+/**
+ * Fetches JSON from the API. A failed request (offline, server unreachable) and a response that is not the
+ * expected JSON get different messages, so the user can tell whether to check their connection.
+ */
+async function request<T>(url: string, init: RequestInit, errorMessage: (status: number) => string): Promise<Result<T>> {
+  let response: Response;
   try {
-    const response = await fetch(`${path}?${query}`);
-    if (response.ok) return { ok: true, data: (await response.json()) as T };
-    return { ok: false, message: response.status === 503 ? "Data saknas just nu." : "Något gick fel." };
+    response = await fetch(url, init);
   } catch {
-    return { ok: false, message: "Kunde inte nå tjänsten." };
+    return { ok: false, message: "Kunde inte nå tjänsten. Kontrollera din internetanslutning." };
   }
+  if (!response.ok) return { ok: false, message: errorMessage(response.status) };
+  if (response.status === 204) return { ok: true, data: null as T };
+  try {
+    return { ok: true, data: (await response.json()) as T };
+  } catch {
+    return { ok: false, message: "Tjänsten gav ett oväntat svar. Försök igen om en stund." };
+  }
+}
+
+function get<T>(path: string, params: Record<string, string | number>): Promise<Result<T>> {
+  const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
+  return request<T>(`${path}?${query}`, {}, (status) => (status === 503 ? "Data saknas just nu." : "Något gick fel."));
 }
 
 export const fetchStatus = (zone: Zone) => get<PriceStatusResponse>("/api/status", { zone });
@@ -50,15 +64,12 @@ export const fetchCheapest = (zone: Zone, interval: number, period: number) =>
 export const fetchThunder = (lat: number, lon: number, hours: number) =>
   get<ThunderResponse>("/api/thunder", { lat, lon, hours });
 
-async function send<T>(method: "POST" | "DELETE", path: string, body: unknown): Promise<Result<T | null>> {
-  try {
-    const response = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (response.ok) return { ok: true, data: response.status === 204 ? null : ((await response.json()) as T) };
-    if (response.status === 409) return { ok: false, message: "Tjänsten har nått max antal prenumerationer." };
-    return { ok: false, message: response.status === 503 ? "Notiser är inte tillgängliga just nu." : "Något gick fel." };
-  } catch {
-    return { ok: false, message: "Kunde inte nå tjänsten." };
-  }
+function send<T>(method: "POST" | "DELETE", path: string, body: unknown): Promise<Result<T | null>> {
+  const init = { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  return request<T | null>(path, init, (status) => {
+    if (status === 409) return "Tjänsten har nått max antal prenumerationer.";
+    return status === 503 ? "Notiser är inte tillgängliga just nu." : "Något gick fel.";
+  });
 }
 
 /** What the API stores for a push subscription. */
