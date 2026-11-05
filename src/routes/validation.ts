@@ -11,14 +11,11 @@ export const latSchema = (number: z.ZodNumber) =>
 export const lonSchema = (number: z.ZodNumber) =>
   number.min(SWEDEN_BOUNDS.minLon).max(SWEDEN_BOUNDS.maxLon).transform(roundCoordinate);
 
-/** Validates query parameters and responds 400 with a readable message when they are invalid. */
-export const validQuery = <T extends z.ZodType>(schema: T) =>
-  zValidator("query", schema, (result, c) => {
+/** Validates the request's query parameters or JSON body, and responds 400 with a readable message when invalid. */
+const valid = <Target extends "query" | "json", T extends z.ZodType>(target: Target, schema: T) =>
+  zValidator(target, schema, (result, c) => {
     if (!result.success) return c.json({ error: z.prettifyError(result.error) }, 400);
   });
 
-/** Validates a JSON request body and responds 400 with a readable message when it is invalid. */
-export const validJson = <T extends z.ZodType>(schema: T) =>
-  zValidator("json", schema, (result, c) => {
-    if (!result.success) return c.json({ error: z.prettifyError(result.error) }, 400);
-  });
+export const validQuery = <T extends z.ZodType>(schema: T) => valid("query", schema);
+export const validJson = <T extends z.ZodType>(schema: T) => valid("json", schema);
