@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
+import { failingDb } from "../../test/failingDb";
 import { loadForecast, loadForecasts, saveForecast } from "../db/forecastCache";
 import type { HttpFetcher } from "../integrations/http";
 import { getThunderForecast } from "./thunderForecast";
@@ -96,6 +97,18 @@ describe("getThunderForecast", () => {
     const forecast = await getThunderForecast(env.DB, fakeMet(() => new Response("", { status: 429 })).fetcher, UA, LAT, LON, later);
     expect(forecast).toEqual({ hours: [{ start: NOW, probability: 5 }], fetched: NOW, stale: true });
     expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(later + 10 * 60_000);
+  });
+
+  it("serves the cached forecast when its lifetime cannot be extended", async () => {
+    await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
+    const db = failingDb("UPDATE forecast_cache");
+    const later = NOW + 31 * 60_000;
+    const notModified = () => new Response(null, { status: 304, headers: { Expires: new Date(later + 30 * 60_000).toUTCString() } });
+
+    expect(await getThunderForecast(db, fakeMet(() => new Response("", { status: 429 })).fetcher, UA, LAT, LON, later)).toMatchObject({
+      stale: true,
+    });
+    expect(await getThunderForecast(db, fakeMet(notModified).fetcher, UA, LAT, LON, later)).toMatchObject({ stale: false });
   });
 
   it("returns the fresh forecast, not the stale one, when it cannot be cached", async () => {
