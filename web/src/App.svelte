@@ -87,6 +87,8 @@
 
   // Reload whenever the zone or position changes, every few minutes, and when the tab becomes visible again.
   $effect(() => {
+    // An effect reruns when state it read synchronously changes. Reading the dependencies here makes them explicit,
+    // instead of relying on what refresh() happens to read before its first await.
     void zone;
     void thunderPlace;
     refresh();
