@@ -39,7 +39,7 @@ describe("duePriceAlert", () => {
       kind: "expensive",
       start: JUMP_WINTER - 45 * MINUTE_MS,
       title: "Dyr el från ca 16:15",
-      body: "SE3: ca 1,50 kr/kWh, jämfört med snittet 1,00 kr/kWh.",
+      body: "SE3: ca 150 öre/kWh, jämfört med snittet 100 öre/kWh.",
     });
   });
 

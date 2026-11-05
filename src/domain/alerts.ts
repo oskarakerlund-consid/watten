@@ -1,4 +1,5 @@
 import { type ClassificationSettings, classifyPrice } from "./classify";
+import { formatPrice } from "./prices";
 import { assessThunder, type ThunderHour } from "./thunder";
 import { QUARTER_HOUR_MS, stockholmClock, stockholmTimeOfDay } from "./time";
 import type { PriceInterval, Zone } from "./types";
@@ -12,8 +13,6 @@ export interface Alert {
   title: string;
   body: string;
 }
-
-const formatSek = (value: number) => value.toFixed(2).replace(".", ",");
 
 export interface PriceAlertSettings extends ClassificationSettings {
   /** A price alert is sent this long before an unusually cheap or expensive period starts. */
@@ -59,7 +58,7 @@ export function duePriceAlert(
         kind,
         start,
         title: kind === "cheap" ? `Billig el från ca ${clock}` : `Dyr el från ca ${clock}`,
-        body: `${zone}: ca ${formatSek(status.currentSekPerKwh)} kr/kWh, jämfört med snittet ${formatSek(status.averageSekPerKwh)} kr/kWh.`,
+        body: `${zone}: ca ${formatPrice(status.currentSekPerKwh)}, jämfört med snittet ${formatPrice(status.averageSekPerKwh)}.`,
       };
     }
     previous = level;

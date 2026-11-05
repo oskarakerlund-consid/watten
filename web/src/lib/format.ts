@@ -3,8 +3,7 @@ import { TIME_ZONE } from "../../../src/domain/time";
 const timeFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 const dateFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
 
-/** Price in whole öre per kWh, e.g. `118 öre/kWh`. */
-export const formatPrice = (sekPerKwh: number) => `${Math.round(sekPerKwh * 100)} öre/kWh`;
+export { formatPrice } from "../../../src/domain/prices";
 
 /**
  * The calendar day after `date` (`YYYY-MM-DD`). Counted in days, not as 24 hours later: a day with a DST change
