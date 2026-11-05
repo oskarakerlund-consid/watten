@@ -2,6 +2,12 @@ import { buildPushPayload } from "@block65/webcrypto-web-push";
 import type { PushTarget } from "../domain/types";
 import { type HttpFetcher, upstreamTimeout } from "./http";
 
+/**
+ * An uncompressed P-256 public key (65 bytes) as unpadded base64url: the VAPID public key, and a browser
+ * subscription's `p256dh` key.
+ */
+export const P256_PUBLIC_KEY = /^[A-Za-z0-9_-]{87}$/;
+
 /** The VAPID key pair (base64url) and a contact for the push service (`mailto:` or `https:` URL). */
 export interface Vapid {
   publicKey: string;

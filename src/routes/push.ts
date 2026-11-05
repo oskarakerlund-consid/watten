@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { parsePushConfig } from "../config";
 import { deleteSubscription, saveSubscription } from "../db/subscriptions";
-import { isPushServiceEndpoint, sendPush } from "../integrations/webpush";
+import { isPushServiceEndpoint, P256_PUBLIC_KEY, sendPush } from "../integrations/webpush";
 import { MAX_SUBSCRIPTIONS } from "../limits";
 import type { SubscribeRequest } from "./contract";
 import type { AppEnv } from "./types";
@@ -12,7 +12,7 @@ import { latSchema, lonSchema, validJson, zoneSchema } from "./validation";
 const endpointSchema = z.string().max(2048).refine(isPushServiceEndpoint, "must be an https URL on a known push service");
 // Browsers send the keys as unpadded base64url: p256dh is a 65-byte P-256 point, auth a 16-byte secret.
 const keysSchema = z.object({
-  p256dh: z.string().regex(/^[A-Za-z0-9_-]{87}$/),
+  p256dh: z.string().regex(P256_PUBLIC_KEY),
   auth: z.string().regex(/^[A-Za-z0-9_-]{22}$/),
 });
 

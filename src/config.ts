@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AlertKind } from "./domain/alerts";
+import { P256_PUBLIC_KEY } from "./integrations/webpush";
 
 const HOUR_MS = 3_600_000;
 
@@ -81,7 +82,7 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
 
 const pushConfigSchema = z.object({
   /** VAPID public key (base64url, uncompressed P-256 point). Not a secret; the browser needs it to subscribe. */
-  VAPID_PUBLIC_KEY: z.string().regex(/^[A-Za-z0-9_-]{87}$/, "must be a base64url P-256 public key"),
+  VAPID_PUBLIC_KEY: z.string().regex(P256_PUBLIC_KEY, "must be a base64url P-256 public key"),
   /** VAPID private key (base64url, the 32-byte P-256 scalar). A secret, set with `wrangler secret put`. */
   VAPID_PRIVATE_KEY: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "must be a base64url P-256 private key"),
   /** Contact for push services, a `mailto:` or `https:` URL. */
