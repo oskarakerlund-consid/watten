@@ -24,6 +24,9 @@
     "AVERAGE_WINDOW_HOURS": 48,
     // Thunder counts as expected in an hour from this probability (%).
     "THUNDER_PROBABILITY_PERCENT": 20,
+    // No price alerts from 22:00 to 07:00 Swedish time (equal hours: none). Thunder alerts are always sent.
+    "PRICE_ALERT_QUIET_FROM_HOUR": 22,
+    "PRICE_ALERT_QUIET_TO_HOUR": 7,
     // Identifies this app to MET Norway, as their terms of service require.
     "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)",
     // Web Push. The public key is not a secret; the private key is set with `wrangler secret put VAPID_PRIVATE_KEY`.

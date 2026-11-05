@@ -10,6 +10,8 @@ describe("parseConfig", () => {
       priceDiffPercent: 20,
       averageWindowHours: 48,
       thunderProbabilityPercent: 20,
+      priceAlertQuietFromHour: 22,
+      priceAlertQuietToHour: 7,
       metUserAgent: "test/1.0",
     });
   });
@@ -30,6 +32,7 @@ describe("parseConfig", () => {
     ["a non-integer window", { AVERAGE_WINDOW_HOURS: 1.5 }],
     ["a non-number", { PRICE_DIFF_PERCENT: "lots" }],
     ["a thunder probability over 100 %", { THUNDER_PROBABILITY_PERCENT: 101 }],
+    ["a quiet hour of 24", { PRICE_ALERT_QUIET_FROM_HOUR: 24 }],
   ])("rejects %s", (_name, vars) => {
     expect(() => parseConfig({ ...UA, ...vars })).toThrow();
   });

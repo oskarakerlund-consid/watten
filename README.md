@@ -14,7 +14,7 @@ A single-screen web app (in Swedish) backed by a JSON API. Everything fits on on
 - **Location and zone:** on the first visit you either press *Använd min plats* (the browser asks for your position; it is never requested automatically) or pick a price zone. Your zone is guessed from the position. In the settings you can change the zone and update the position. Both are stored only in your browser (`localStorage`); the position is rounded to about 1 km. Without a position, the thunder forecast is for the zone's largest city.
 - **Push notifications:** the 🔔 button opens a form to turn Web Push on or off. Turning it on sends a confirmation notification right away. The subscription is stored with the current zone and rounded position, and updated when either changes. On iPhone and iPad, Web Push only works after the page has been added to the home screen.
 - **Alerts:** subscribers get a notification
-  - about **1 hour before an unusually cheap or expensive period** in their zone starts. "Starts" means the moment the page would change color: the level uses the coming hour, so that can be up to 45 minutes before the price itself changes. No price alerts are sent from 22:00 to 07:00 Swedish time.
+  - about **1 hour before an unusually cheap or expensive period** in their zone starts. "Starts" means the moment the page would change color: the level uses the coming hour, so that can be up to 45 minutes before the price itself changes. No price alerts are sent from 22:00 to 07:00 Swedish time (configurable).
   - when **thunder is expected within 2 hours** at their position (or at the zone's largest city if they have not shared one), with the same probability threshold as the API. Thunder alerts are sent at any time of day.
 
   A subscriber gets at most one alert of each kind per period: a new price alert of the same kind needs a period at least 3 hours from the previous one, and a new thunder alert one at least 6 hours away. This stops repeats when a forecast shifts or a level flickers.
@@ -162,6 +162,8 @@ Tunable values are Worker vars in `wrangler.jsonc`. They are validated in `src/c
 | `PRICE_DIFF_PERCENT` | `20` | Minimum difference from the recent average, in percent of it. |
 | `AVERAGE_WINDOW_HOURS` | `48` | Length of the trailing window used as the recent average (1–72). Price ingestion keeps enough history to cover it. |
 | `THUNDER_PROBABILITY_PERCENT` | `20` | Probability of thunder (%) from which an hour counts as having expected thunder. |
+| `PRICE_ALERT_QUIET_FROM_HOUR` | `22` | No price alerts from this hour (0–23, Swedish time)… |
+| `PRICE_ALERT_QUIET_TO_HOUR` | `7` | …until this hour. The quiet time may span midnight; equal hours mean no quiet time. Thunder alerts are always sent. |
 | `MET_USER_AGENT` | – (required) | Identifies the app to MET Norway, as their terms require. If you deploy your own copy, change it to your own app name and contact URL or e-mail. |
 | `VAPID_PUBLIC_KEY` | – | VAPID public key (base64url) for Web Push. Not a secret. Generate the pair with `node scripts/vapid-keys.mjs`. |
 | `VAPID_SUBJECT` | repo URL | Contact for push services, a `mailto:` or `https://` URL. |

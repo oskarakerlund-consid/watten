@@ -7,9 +7,6 @@ import type { PriceInterval, Zone } from "./types";
 export const PRICE_LEAD_MS = HOUR_MS;
 /** A thunder alert is sent when thunder is expected within this many hours. */
 export const THUNDER_LEAD_HOURS = 2;
-/** No price alerts from 22:00 to 07:00 Swedish time. Thunder alerts are always sent. */
-const QUIET_FROM_HOUR = 22;
-const QUIET_TO_HOUR = 7;
 /**
  * A subscriber gets at most one alert of each kind for periods starting within this long of each other.
  * It stops repeats when a forecast shifts or a price level flickers between cheap and normal.
@@ -30,9 +27,18 @@ export interface Alert {
 
 const formatSek = (value: number) => value.toFixed(2).replace(".", ",");
 
-export function isPriceQuietTime(now: number): boolean {
+export interface PriceAlertSettings extends ClassificationSettings {
+  /** No price alerts from this hour (Swedish time)... */
+  priceAlertQuietFromHour: number;
+  /** ...until this hour. Equal hours mean no quiet time. Thunder alerts are always sent. */
+  priceAlertQuietToHour: number;
+}
+
+/** True if `now` is within the quiet hours `[fromHour, toHour)` in Swedish time, which may span midnight. */
+export function isPriceQuietTime(now: number, fromHour: number, toHour: number): boolean {
   const { hour } = stockholmTimeOfDay(now);
-  return hour >= QUIET_FROM_HOUR || hour < QUIET_TO_HOUR;
+  if (fromHour === toHour) return false;
+  return fromHour < toHour ? hour >= fromHour && hour < toHour : hour >= fromHour || hour < toHour;
 }
 
 /**
@@ -46,9 +52,9 @@ export function duePriceAlert(
   zone: Zone,
   intervals: readonly PriceInterval[],
   now: number,
-  settings: ClassificationSettings,
+  settings: PriceAlertSettings,
 ): Alert | null {
-  if (isPriceQuietTime(now)) return null;
+  if (isPriceQuietTime(now, settings.priceAlertQuietFromHour, settings.priceAlertQuietToHour)) return null;
   const firstStep = Math.floor(now / STEP_MS) * STEP_MS + STEP_MS;
   let previous = classifyPrice(intervals, firstStep - STEP_MS, settings)?.level ?? null;
 

@@ -3,7 +3,13 @@ import { alreadySent, duePriceAlert, dueThunderAlert, isPriceQuietTime } from ".
 import { HOUR_MS, MINUTE_MS } from "./time";
 import type { PriceInterval } from "./types";
 
-const SETTINGS = { minPriceDiffSekPerKwh: 0.2, priceDiffPercent: 20, averageWindowHours: 48 };
+const SETTINGS = {
+  minPriceDiffSekPerKwh: 0.2,
+  priceDiffPercent: 20,
+  averageWindowHours: 48,
+  priceAlertQuietFromHour: 22,
+  priceAlertQuietToHour: 7,
+};
 const QUARTER = 15 * MINUTE_MS;
 
 /** Quarter-hour intervals from `start`, one price per hour. */
@@ -70,6 +76,12 @@ describe("duePriceAlert", () => {
     expect(duePriceAlert("SE3", pricesJumpingAt(jump, 3), jump - HOUR_MS, SETTINGS)?.title).toBe("Dyr el från ca 16:15");
   });
 
+  it("alerts at night when there are no quiet hours", () => {
+    const jump = Date.UTC(2026, 9, 30, 1);
+    const settings = { ...SETTINGS, priceAlertQuietFromHour: 0, priceAlertQuietToHour: 0 };
+    expect(duePriceAlert("SE3", pricesJumpingAt(jump, 0.2), jump - HOUR_MS, settings)).not.toBeNull();
+  });
+
   it("stays quiet at night", () => {
     // 02:00 Swedish time, alert would be due at 01:15.
     const jump = Date.UTC(2026, 9, 30, 1);
@@ -86,7 +98,13 @@ describe("isPriceQuietTime", () => {
     [Date.UTC(2026, 6, 15, 5, 0), false], // 07:00 summer time
     [Date.UTC(2026, 6, 15, 4, 59), true], // 06:59 summer time
   ])("at %i is %s", (now, quiet) => {
-    expect(isPriceQuietTime(now)).toBe(quiet);
+    expect(isPriceQuietTime(now, 22, 7)).toBe(quiet);
+  });
+
+  it("handles quiet hours within a day and no quiet hours", () => {
+    const at = (hour: number) => Date.UTC(2026, 9, 30, hour - 1); // winter time
+    expect([12, 13, 14, 15].map((h) => isPriceQuietTime(at(h), 13, 15))).toEqual([false, true, true, false]);
+    expect(isPriceQuietTime(at(3), 7, 7)).toBe(false);
   });
 });
 

@@ -9,6 +9,10 @@ const configSchema = z.object({
   AVERAGE_WINDOW_HOURS: z.coerce.number().int().min(1).max(72).default(48),
   /** Probability of thunder, in percent, from which thunder counts as expected in an hour. */
   THUNDER_PROBABILITY_PERCENT: z.coerce.number().min(0).max(100).default(20),
+  /** No price alerts from this hour (0–23, Swedish time)... */
+  PRICE_ALERT_QUIET_FROM_HOUR: z.coerce.number().int().min(0).max(23).default(22),
+  /** ...until this hour. Equal hours mean no quiet time. Thunder alerts are always sent. */
+  PRICE_ALERT_QUIET_TO_HOUR: z.coerce.number().int().min(0).max(23).default(7),
   /** Identifying User-Agent required by MET Norway's terms of service. */
   MET_USER_AGENT: z.string().min(1),
 });
@@ -18,6 +22,8 @@ export interface Config {
   priceDiffPercent: number;
   averageWindowHours: number;
   thunderProbabilityPercent: number;
+  priceAlertQuietFromHour: number;
+  priceAlertQuietToHour: number;
   metUserAgent: string;
 }
 
@@ -28,6 +34,8 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
     PRICE_DIFF_PERCENT: env.PRICE_DIFF_PERCENT,
     AVERAGE_WINDOW_HOURS: env.AVERAGE_WINDOW_HOURS,
     THUNDER_PROBABILITY_PERCENT: env.THUNDER_PROBABILITY_PERCENT,
+    PRICE_ALERT_QUIET_FROM_HOUR: env.PRICE_ALERT_QUIET_FROM_HOUR,
+    PRICE_ALERT_QUIET_TO_HOUR: env.PRICE_ALERT_QUIET_TO_HOUR,
     MET_USER_AGENT: env.MET_USER_AGENT,
   });
   if (!result.success) throw new Error(`Invalid Worker vars in wrangler.jsonc:\n${z.prettifyError(result.error)}`);
@@ -37,6 +45,8 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
     priceDiffPercent: vars.PRICE_DIFF_PERCENT,
     averageWindowHours: vars.AVERAGE_WINDOW_HOURS,
     thunderProbabilityPercent: vars.THUNDER_PROBABILITY_PERCENT,
+    priceAlertQuietFromHour: vars.PRICE_ALERT_QUIET_FROM_HOUR,
+    priceAlertQuietToHour: vars.PRICE_ALERT_QUIET_TO_HOUR,
     metUserAgent: vars.MET_USER_AGENT,
   };
 }
