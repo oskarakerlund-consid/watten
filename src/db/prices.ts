@@ -37,6 +37,8 @@ export async function loadZoneIntervals(db: D1Database, zone: Zone, from: number
 
 // One statement per zone and day: the rows are passed as a single JSON parameter, which keeps us far below the
 // 100 bound parameters per query and the per-invocation query limit.
+// `WHERE true` is required by SQLite, not a filter: in `INSERT … SELECT … ON CONFLICT` the parser would otherwise
+// read `ON` as the start of a join constraint (see "Parsing Ambiguity" in SQLite's UPSERT documentation).
 const UPSERT_SQL = `
   INSERT INTO prices (zone, start_utc, end_utc, sek_per_kwh)
   SELECT ?1, value ->> '$[0]', value ->> '$[1]', value ->> '$[2]' FROM json_each(?2) WHERE true
