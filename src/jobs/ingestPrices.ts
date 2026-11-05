@@ -6,7 +6,7 @@ import {
   upsertIntervalsStatement,
 } from "../db/prices";
 import { averagePrice } from "../domain/prices";
-import { addDays, stockholmDate, stockholmDayBounds, stockholmStartOfDay } from "../domain/time";
+import { addDays, formatLocalDate, stockholmDate, stockholmDayBounds, stockholmStartOfDay } from "../domain/time";
 import { type LocalDate, ZONES, type Zone } from "../domain/types";
 import { fetchDayPrices } from "../integrations/elprisetjustnu";
 import type { HttpFetcher } from "../integrations/http";
@@ -23,8 +23,7 @@ export interface ZoneDay {
   date: LocalDate;
 }
 
-const dayLabel = ({ zone, date }: ZoneDay) =>
-  `${zone} ${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+const dayLabel = ({ zone, date }: ZoneDay) => `${zone} ${formatLocalDate(date)}`;
 
 /** Full days to keep before today so that a trailing average window of `hours` is always covered. */
 export function historyDaysFor(hours: number): number {

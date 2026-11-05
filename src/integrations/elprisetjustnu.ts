@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pad2 } from "../domain/time";
 import type { LocalDate, PriceInterval, Zone } from "../domain/types";
 import { type HttpFetcher, upstreamTimeout } from "./http";
 
@@ -16,10 +17,8 @@ const responseSchema = z
 
 export type DayPricesResult = { status: "ok"; intervals: PriceInterval[] } | { status: "not-available" };
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
 export function dayPricesUrl(zone: Zone, date: LocalDate): string {
-  return `${BASE_URL}/${date.year}/${pad(date.month)}-${pad(date.day)}_${zone}.json`;
+  return `${BASE_URL}/${date.year}/${pad2(date.month)}-${pad2(date.day)}_${zone}.json`;
 }
 
 /**
