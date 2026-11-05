@@ -8,10 +8,10 @@ describe("toLocationUpdate", () => {
     expect(toLocationUpdate({ ok: true, position }, zoneData)).toEqual({ position, zone: "SE3", message: null });
   });
 
-  it("stores the position but asks for a zone when it is outside Sweden", () => {
+  it("keeps the old position and asks for a zone when the new one is outside Sweden", () => {
     const position = { lat: 59.91, lon: 10.75 };
     const update = toLocationUpdate({ ok: true, position }, zoneData);
-    expect(update.position).toEqual(position);
+    expect(update.position).toBeNull();
     expect(update.zone).toBeNull();
     expect(update.message).toMatch(/utanför Sverige/);
   });

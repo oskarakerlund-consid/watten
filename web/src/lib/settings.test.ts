@@ -42,6 +42,8 @@ describe("settings", () => {
     const storage = memoryStorage({ "watten.zone": "SE9", "watten.position": '{"lat":"north"}' });
     expect(loadSettings(storage)).toEqual({ zone: null, position: null });
     expect(loadSettings(memoryStorage({ "watten.position": "not json" })).position).toBeNull();
+    // Oslo: outside Sweden, so the API would reject it.
+    expect(loadSettings(memoryStorage({ "watten.position": '{"lat":59.91,"lon":10.75}' })).position).toBeNull();
   });
 
   it("works when storage is blocked", () => {

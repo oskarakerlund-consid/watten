@@ -1,3 +1,4 @@
+import { isInSwedenBounds } from "../../../src/domain/position";
 import { isZone, type Zone } from "./zones";
 
 export interface Position {
@@ -53,7 +54,8 @@ function parsePosition(raw: string | null): Position | null {
     const value: unknown = JSON.parse(raw);
     if (typeof value === "object" && value !== null && "lat" in value && "lon" in value) {
       const { lat, lon } = value;
-      if (typeof lat === "number" && typeof lon === "number" && Number.isFinite(lat) && Number.isFinite(lon)) {
+      // Positions outside Sweden (stored by older versions) are dropped: the API rejects them.
+      if (typeof lat === "number" && typeof lon === "number" && isInSwedenBounds(lat, lon)) {
         return { lat, lon };
       }
     }

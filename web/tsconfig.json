@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "src/**/*.json", "../src/domain/types.ts", "../src/domain/zones.ts"]
+  "include": ["src/**/*.ts", "src/**/*.svelte", "src/**/*.json", "../src/domain/types.ts", "../src/domain/zones.ts", "../src/domain/position.ts"]
 }
