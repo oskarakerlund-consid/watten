@@ -3,6 +3,7 @@ import { z } from "zod";
 import { loadZoneIntervals } from "../db/prices";
 import { cheapestWindow, coveredUntil } from "../domain/prices";
 import { HOUR_MS, toStockholmIso } from "../domain/time";
+import type { CheapestResponse } from "./contract";
 import type { AppEnv } from "./types";
 import { validQuery, zoneSchema } from "./validation";
 
@@ -36,5 +37,5 @@ export const cheapestRoute = new Hono<AppEnv>().get("/", validQuery(querySchema)
     complete: knownUntil === now + periodHours * HOUR_MS,
     knownUntil: new Date(knownUntil).toISOString(),
     knownUntilLocal: toStockholmIso(knownUntil),
-  });
+  } satisfies CheapestResponse);
 });

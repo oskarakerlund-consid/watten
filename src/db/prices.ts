@@ -37,6 +37,8 @@ export async function loadZoneIntervals(db: D1Database, zone: Zone, from: number
 
 // One statement per zone and day: the rows are passed as a single JSON parameter, which keeps us far below the
 // 100 bound parameters per query and the per-invocation query limit.
+// `WHERE true` is required by SQLite, not a filter: in `INSERT … SELECT … ON CONFLICT` the parser would otherwise
+// read `ON` as the start of a join constraint (see "Parsing Ambiguity" in SQLite's UPSERT documentation).
 const UPSERT_SQL = `
   INSERT INTO prices (zone, start_utc, end_utc, sek_per_kwh)
   SELECT ?1, value ->> '$[0]', value ->> '$[1]', value ->> '$[2]' FROM json_each(?2) WHERE true
@@ -46,6 +48,11 @@ const UPSERT_SQL = `
 export function upsertIntervalsStatement(db: D1Database, zone: Zone, intervals: readonly PriceInterval[]) {
   const rows = intervals.map((i) => [i.start, i.end, i.sekPerKwh]);
   return db.prepare(UPSERT_SQL).bind(zone, JSON.stringify(rows));
+}
+
+/** Statement that deletes a zone's intervals that start within `[from, to)`. Run it with `db.batch()`. */
+export function deleteZoneIntervalsStatement(db: D1Database, zone: Zone, from: number, to: number) {
+  return db.prepare("DELETE FROM prices WHERE zone = ?1 AND start_utc >= ?2 AND start_utc < ?3").bind(zone, from, to);
 }
 
 /** Deletes all intervals that start before `cutoff`. */

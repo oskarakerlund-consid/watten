@@ -35,13 +35,17 @@ export interface LocationUpdate {
   message: string | null;
 }
 
-/** Turns a location result into a new position and a guessed zone, or a message asking the user to choose. */
+/**
+ * Turns a location result into a new position and a guessed zone, or a message asking the user to choose.
+ * A position without a zone (outside Sweden) is not kept.
+ */
 export function toLocationUpdate(result: LocateResult, zones: ZoneData): LocationUpdate {
   if (!result.ok) return { position: null, zone: null, message: result.message };
   const guessed = guessZone(zones, result.position.lat, result.position.lon);
   if (isZone(guessed)) return { position: result.position, zone: guessed, message: null };
+  // Not stored: the thunder forecast and push notifications only accept positions in Sweden.
   return {
-    position: result.position,
+    position: null,
     zone: null,
     message: "Din plats verkar ligga utanför Sverige. Välj elområde manuellt.",
   };

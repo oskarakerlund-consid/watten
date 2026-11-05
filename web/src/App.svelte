@@ -3,9 +3,9 @@
   import { locate, toLocationUpdate } from "./lib/geolocation";
   import { trackLatest } from "./lib/latest";
   import { syncPush } from "./lib/push";
-  import { loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
+  import { browserStorage, loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
   import zoneData from "./lib/zones/zones.json";
-  import { ZONE_INFO, type Zone } from "./lib/zones";
+  import { thunderPosition, ZONE_INFO, type Zone } from "./lib/zones";
   import PriceHeadline from "./components/PriceHeadline.svelte";
   import CheapestCard from "./components/CheapestCard.svelte";
   import ThunderCard from "./components/ThunderCard.svelte";
@@ -17,7 +17,9 @@
   const PERIOD_HOURS = 8;
   const REFRESH_MS = 5 * 60_000;
 
-  const initial = loadSettings(localStorage);
+  // Null if the browser blocks storage: settings then only last for this visit.
+  const storage = browserStorage();
+  const initial = loadSettings(storage);
   let zone = $state<Zone | null>(initial.zone);
   let position = $state<Position | null>(initial.position);
   let message = $state<string | null>(null);
@@ -32,18 +34,24 @@
 
   const level = $derived(status?.ok ? status.data.level : "unknown");
   /** Where the thunder forecast is for: the user's position, or the zone's representative city. */
-  const thunderPlace = $derived(position ?? (zone ? ZONE_INFO[zone] : null));
+  const thunderPlace = $derived(zone ? thunderPosition(zone, position) : position);
 
   function chooseZone(next: Zone) {
     zone = next;
-    saveZone(localStorage, next);
+    saveZone(storage, next);
     message = null;
+  }
+
+  /** Sends the new zone and position to the server if notifications are on, and shows a message if that fails. */
+  async function updatePush(nextZone: Zone) {
+    const outcome = await syncPush(nextZone, position);
+    if (!outcome.ok) message = outcome.message;
   }
 
   /** A zone picked by hand. */
   function pickZone(next: Zone) {
     chooseZone(next);
-    syncPush(next, position);
+    updatePush(next);
   }
 
   async function useMyLocation() {
@@ -52,11 +60,11 @@
     locating = false;
     if (update.position) {
       position = update.position;
-      savePosition(localStorage, update.position);
+      savePosition(storage, update.position);
     }
     if (update.zone) chooseZone(update.zone);
     else message = update.message;
-    if (zone) syncPush(zone, position);
+    if (zone) updatePush(zone);
   }
 
   /** Only the latest refresh applies its data, so a slow response for an old zone or position cannot overwrite a newer one. */
@@ -79,6 +87,8 @@
 
   // Reload whenever the zone or position changes, every few minutes, and when the tab becomes visible again.
   $effect(() => {
+    // An effect reruns when state it read synchronously changes. Reading the dependencies here makes them explicit,
+    // instead of relying on what refresh() happens to read before its first await.
     void zone;
     void thunderPlace;
     refresh();

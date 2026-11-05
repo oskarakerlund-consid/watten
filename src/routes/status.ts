@@ -4,6 +4,7 @@ import { parseConfig } from "../config";
 import { loadZoneIntervals } from "../db/prices";
 import { classifyPrice } from "../domain/classify";
 import { HOUR_MS } from "../domain/time";
+import type { PriceStatusResponse } from "./contract";
 import type { AppEnv } from "./types";
 import { validQuery, zoneSchema } from "./validation";
 
@@ -16,5 +17,5 @@ export const statusRoute = new Hono<AppEnv>().get("/", validQuery(z.object({ zon
   const status = classifyPrice(intervals, now, config);
   if (!status) return c.json({ error: `Prices for ${zone} are not available yet` }, 503);
 
-  return c.json({ zone, averageWindowHours: config.averageWindowHours, ...status });
+  return c.json({ zone, averageWindowHours: config.averageWindowHours, ...status } satisfies PriceStatusResponse);
 });

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { failingDb } from "../../test/failingDb";
 import { seedHourlyPrices } from "../../test/seedPrices";
 import { subscriptionKeys, vapidKeys } from "../../test/pushKeys";
 import { parseConfig } from "../config";
@@ -9,7 +10,8 @@ import { HOUR_MS, MINUTE_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
 import type { HttpFetcher } from "../integrations/http";
 import type { Vapid } from "../integrations/webpush";
-import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN, sendAlerts } from "./sendAlerts";
+import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN } from "../limits";
+import { sendAlerts } from "./sendAlerts";
 
 // Prices jump at 17:00 Swedish winter time (16:00 UTC); the page turns red at 16:15, so the alert is due from 15:15.
 const JUMP = Date.UTC(2026, 9, 30, 16);
@@ -86,7 +88,7 @@ const sentRows = async () =>
 describe("sendAlerts", () => {
   it("does nothing without subscribers", async () => {
     const push = pushService();
-    expect(await push.run()).toEqual({ subscriptions: 0, sent: 0, gone: 0, failed: 0, deferred: 0 });
+    expect(await push.run()).toEqual({ subscriptions: 0, sent: 0, gone: 0, failed: 0, deferred: 0, unrecorded: 0 });
   });
 
   it("sends a price alert once to subscribers in the zone", async () => {
@@ -140,6 +142,29 @@ describe("sendAlerts", () => {
     expect(await push.run()).toMatchObject({ sent: 1, gone: 1 });
     expect((await env.DB.prepare("SELECT count(*) AS n FROM push_subscriptions").first())?.n).toBe(0);
     expect(await sentRows()).toEqual([]);
+  });
+
+  it("still records sent alerts when a gone subscription cannot be deleted", async () => {
+    await seedExpensiveAt17("SE3");
+    await seedForecast(59.33, 18.07, [0, 50, 0, 0]);
+    await subscribe(1, "SE3");
+
+    const { fetcher } = pushService({ [endpoint(1)]: [201, 410] });
+    const db = failingDb("DELETE FROM push_subscriptions");
+    expect(await sendAlerts(db, fetcher, config, vapid, NOW)).toMatchObject({ sent: 1, gone: 0, failed: 1 });
+    expect(await sentRows()).toMatchObject([{ endpoint: endpoint(1), kind: "thunder" }]);
+  });
+
+  it("keeps sending when a sent alert cannot be recorded", async () => {
+    await seedExpensiveAt17("SE3");
+    await seedForecast(59.33, 18.07, Array(4).fill(0));
+    await subscribe(1, "SE3");
+    await subscribe(2, "SE3");
+
+    const { fetcher, sent } = pushService();
+    const db = failingDb("INSERT OR IGNORE INTO notifications_sent");
+    expect(await sendAlerts(db, fetcher, config, vapid, NOW)).toMatchObject({ sent: 2, unrecorded: 2 });
+    expect(sent).toEqual([endpoint(1), endpoint(2)]);
   });
 
   it("retries a failed push on the next run", async () => {

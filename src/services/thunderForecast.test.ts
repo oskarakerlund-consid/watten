@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadForecast, saveForecast } from "../db/forecastCache";
+import { failingDb } from "../../test/failingDb";
+import { loadForecast, loadForecasts, saveForecast } from "../db/forecastCache";
 import type { HttpFetcher } from "../integrations/http";
 import { getThunderForecast } from "./thunderForecast";
 
@@ -45,6 +46,22 @@ describe("getThunderForecast", () => {
     expect(await loadForecast(env.DB, LAT, LON)).toMatchObject({ expires: NOW + 30 * 60_000, lastModified: "Fri, 16 Oct 2026 16:00:00 GMT" });
   });
 
+  it.each([["invalid JSON", "{"], ["an unexpected shape", '[{"start":"soon"}]']])(
+    "replaces a cached forecast with %s by a fresh one",
+    async (_name, hours) => {
+      await env.DB.prepare(
+        "INSERT INTO forecast_cache (lat, lon, hours, expires_utc, last_modified, fetched_utc) VALUES (?1, ?2, ?3, ?4, NULL, ?5)",
+      )
+        .bind(LAT, LON, hours, NOW + 30 * 60_000, NOW)
+        .run();
+      expect(await loadForecasts(env.DB, [{ lat: LAT, lon: LON }])).toHaveProperty("size", 0);
+
+      const forecast = await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
+      expect(forecast.hours).toEqual([{ start: NOW, probability: 5 }]);
+      expect(await loadForecasts(env.DB, [{ lat: LAT, lon: LON }])).toHaveProperty("size", 1);
+    },
+  );
+
   it("serves the cache without contacting MET until it expires", async () => {
     await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
 
@@ -82,7 +99,19 @@ describe("getThunderForecast", () => {
     expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(later + 10 * 60_000);
   });
 
-  it("does not treat a database error as a MET failure", async () => {
+  it("serves the cached forecast when its lifetime cannot be extended", async () => {
+    await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
+    const db = failingDb("UPDATE forecast_cache");
+    const later = NOW + 31 * 60_000;
+    const notModified = () => new Response(null, { status: 304, headers: { Expires: new Date(later + 30 * 60_000).toUTCString() } });
+
+    expect(await getThunderForecast(db, fakeMet(() => new Response("", { status: 429 })).fetcher, UA, LAT, LON, later)).toMatchObject({
+      stale: true,
+    });
+    expect(await getThunderForecast(db, fakeMet(notModified).fetcher, UA, LAT, LON, later)).toMatchObject({ stale: false });
+  });
+
+  it("returns the fresh forecast, not the stale one, when it cannot be cached", async () => {
     await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
     const failingWrites = new Proxy(env.DB, {
       get: (db, key) =>
@@ -95,9 +124,11 @@ describe("getThunderForecast", () => {
     });
 
     const later = NOW + 31 * 60_000;
-    await expect(
-      getThunderForecast(failingWrites, fakeMet(ok(40, later + 30 * 60_000)).fetcher, UA, LAT, LON, later),
-    ).rejects.toThrow("D1 write failed");
+    expect(await getThunderForecast(failingWrites, fakeMet(ok(40, later + 30 * 60_000)).fetcher, UA, LAT, LON, later)).toEqual({
+      hours: [{ start: NOW, probability: 40 }],
+      fetched: later,
+      stale: false,
+    });
     expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(NOW + 30 * 60_000);
   });
 

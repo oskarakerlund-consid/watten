@@ -1,5 +1,8 @@
 import type { PriceInterval } from "./types";
 
+/** A price in whole öre per kWh, e.g. `118 öre/kWh`. Used in the page and in push notifications. */
+export const formatPrice = (sekPerKwh: number) => `${Math.round(sekPerKwh * 100)} öre/kWh`;
+
 /**
  * Time-weighted average price over `[from, to)`.
  * Returns `null` if the intervals do not fully cover the span.

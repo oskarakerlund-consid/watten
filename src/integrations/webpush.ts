@@ -1,11 +1,12 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
-import type { HttpFetcher } from "./http";
+import type { PushTarget } from "../domain/types";
+import { type HttpFetcher, upstreamTimeout } from "./http";
 
-/** Where and how to send a push: the browser's subscription. */
-export interface PushTarget {
-  endpoint: string;
-  keys: { p256dh: string; auth: string };
-}
+/**
+ * An uncompressed P-256 public key (65 bytes) as unpadded base64url: the VAPID public key, and a browser
+ * subscription's `p256dh` key.
+ */
+export const P256_PUBLIC_KEY = /^[A-Za-z0-9_-]{87}$/;
 
 /** The VAPID key pair (base64url) and a contact for the push service (`mailto:` or `https:` URL). */
 export interface Vapid {
@@ -65,7 +66,12 @@ export async function sendPush(
     { ...target, expirationTime: null },
     vapid,
   );
-  const response = await fetcher(target.endpoint, { method: "POST", headers: request.headers, body: request.body });
+  const response = await fetcher(target.endpoint, {
+    method: "POST",
+    headers: request.headers,
+    body: request.body,
+    signal: upstreamTimeout(),
+  });
   await response.body?.cancel();
   if (response.ok) return "sent";
   if (response.status === 404 || response.status === 410) return "gone";

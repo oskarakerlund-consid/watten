@@ -21,11 +21,12 @@ export async function loadSentAlerts(db: D1Database, since: number): Promise<Map
   return byEndpoint;
 }
 
-/** Statement that records an alert as sent. Run it with `db.batch()`. */
-export function recordSentStatement(db: D1Database, endpoint: string, alert: Alert, now: number): D1PreparedStatement {
-  return db
+/** Records an alert as sent. */
+export async function recordSent(db: D1Database, endpoint: string, alert: Alert, now: number): Promise<void> {
+  await db
     .prepare("INSERT OR IGNORE INTO notifications_sent (endpoint, kind, start_utc, sent_utc) VALUES (?1, ?2, ?3, ?4)")
-    .bind(endpoint, alert.kind, alert.start, now);
+    .bind(endpoint, alert.kind, alert.start, now)
+    .run();
 }
 
 /** Deletes records of alerts for periods that started before `cutoff`. */

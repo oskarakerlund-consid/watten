@@ -4,6 +4,7 @@ import { parseConfig } from "../config";
 import { assessThunder } from "../domain/thunder";
 import { toStockholmIso } from "../domain/time";
 import { getThunderForecast } from "../services/thunderForecast";
+import type { ThunderResponse } from "./contract";
 import type { AppEnv } from "./types";
 import { latSchema, lonSchema, validQuery } from "./validation";
 
@@ -45,5 +46,5 @@ export const thunderRoute = new Hono<AppEnv>().get("/", validQuery(querySchema),
     maxProbabilityPercent: assessment.maxProbability,
     forecastFetched: new Date(forecast.fetched).toISOString(),
     stale: forecast.stale,
-  });
+  } satisfies ThunderResponse);
 });

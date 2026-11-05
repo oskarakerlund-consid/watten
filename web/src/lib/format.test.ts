@@ -20,6 +20,11 @@ describe("formatTime", () => {
     expect(formatTime(new Date("2026-10-16T22:30:00Z"), NOW)).toBe("i morgon 00:30");
   });
 
+  it("finds tomorrow on the evening before summer time starts", () => {
+    // Saturday 2027-03-27 23:30 winter time; 24 hours later is already Monday because Sunday has 23 hours.
+    expect(formatTime(new Date("2027-03-28T20:00:00Z"), new Date("2027-03-27T22:30:00Z"))).toBe("i morgon 22:00");
+  });
+
   it("uses winter time after the change", () => {
     expect(formatTime(new Date("2026-10-26T12:00:00Z"), NOW)).toBe("2026-10-26 13:00");
   });

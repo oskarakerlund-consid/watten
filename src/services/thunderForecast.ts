@@ -15,10 +15,22 @@ export interface ThunderForecast {
 }
 
 /**
+ * Extends a cached forecast's lifetime. A failure is only logged: the cached forecast can still be served, and
+ * MET is then asked again on the next request.
+ */
+async function tryExtendForecast(db: D1Database, lat: number, lon: number, expires: number): Promise<void> {
+  try {
+    await extendForecast(db, lat, lon, expires);
+  } catch (error) {
+    console.error("Could not extend the cached thunder forecast", error);
+  }
+}
+
+/**
  * Returns the thunder forecast for a (rounded) position, using the D1 cache as MET's terms require:
  * cached data is used until it expires, then refreshed with `If-Modified-Since`.
  * If MET fails, an expired cached forecast is returned as stale; without one, the error is thrown.
- * Database errors are never treated as MET failures.
+ * Database errors are never treated as MET failures. A failed cache write is logged and the forecast is returned anyway.
  */
 export async function getThunderForecast(
   db: D1Database,
@@ -37,16 +49,21 @@ export async function getThunderForecast(
   } catch (error) {
     if (!cached) throw error;
     console.error("Serving stale thunder forecast", error);
-    await extendForecast(db, lat, lon, now + RETRY_AFTER_ERROR_MS);
+    await tryExtendForecast(db, lat, lon, now + RETRY_AFTER_ERROR_MS);
     return { hours: cached.hours, fetched: cached.fetched, stale: true };
   }
 
   if (result.status === "ok") {
     const fresh: CachedForecast = { hours: result.hours, expires: result.expires, lastModified: result.lastModified, fetched: now };
-    await saveForecast(db, lat, lon, fresh);
+    // The forecast is still valid if it cannot be cached; the next request then fetches it again.
+    try {
+      await saveForecast(db, lat, lon, fresh);
+    } catch (error) {
+      console.error("Could not cache the thunder forecast", error);
+    }
     return { hours: fresh.hours, fetched: now, stale: false };
   }
   if (!cached) throw new Error("MET Norway answered 304 Not Modified without a cached forecast");
-  await extendForecast(db, lat, lon, result.expires);
+  await tryExtendForecast(db, lat, lon, result.expires);
   return { hours: cached.hours, fetched: cached.fetched, stale: false };
 }

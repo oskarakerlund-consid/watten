@@ -24,8 +24,16 @@
     "AVERAGE_WINDOW_HOURS": 48,
     // Thunder counts as expected in an hour from this probability (%).
     "THUNDER_PROBABILITY_PERCENT": 20,
-    // Identifies this app to MET Norway, as their terms of service require.
-    "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)",
+    // No price alerts from 22:00 to 07:00 Swedish time (equal hours: none). Thunder alerts are always sent.
+    "PRICE_ALERT_QUIET_FROM_HOUR": 22,
+    "PRICE_ALERT_QUIET_TO_HOUR": 7,
+    // When alerts are sent, and how far apart periods of the same kind must be to get another alert.
+    "PRICE_ALERT_LEAD_MINUTES": 60,
+    "THUNDER_ALERT_LEAD_HOURS": 2,
+    "PRICE_ALERT_COOLDOWN_HOURS": 3,
+    "THUNDER_ALERT_COOLDOWN_HOURS": 6,
+    // Identifies this app to MET Norway, as their terms of service require. No version, so it cannot drift from package.json.
+    "MET_USER_AGENT": "watten (https://github.com/oskarakerlund-consid/watten)",
     // Web Push. The public key is not a secret; the private key is set with `wrangler secret put VAPID_PRIVATE_KEY`.
     // Push endpoints answer 503 until both keys are set. See README "Configuration".
     "VAPID_PUBLIC_KEY": "BIC1RXwZC4_K851gT-hRC7jPPyuQHJVolptccGdee3jYDgIAl_T1otsxhF8ov2igzQmvmbAsHuuMqa68snffIlU",
@@ -40,7 +48,7 @@
   },
   "triggers": {
     // Price ingestion every 15 minutes; a run only fetches missing days, so most runs do one D1 read.
-    // Alerts every 5 minutes, starting 2 minutes after each ingestion. Both must match the constants in src/index.ts.
+    // Alerts every 5 minutes, starting 2 minutes after each ingestion. Both must match the constants in src/crons.ts (checked by a test).
     "crons": ["*/15 * * * *", "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"]
   }
 }

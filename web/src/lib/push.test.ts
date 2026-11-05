@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { base64UrlToBytes, subscriptionRequest } from "./push";
+import { base64UrlToBytes, subscribeErrorMessage, subscriptionRequest } from "./push";
 
 describe("base64UrlToBytes", () => {
   it("decodes unpadded base64url", () => {
@@ -25,5 +25,13 @@ describe("subscriptionRequest", () => {
 
   it("returns null without encryption keys", () => {
     expect(subscriptionRequest({ endpoint: json.endpoint }, "SE3", null)).toBeNull();
+  });
+});
+
+describe("subscribeErrorMessage", () => {
+  it("tells blocked notifications from an unreachable push service", () => {
+    expect(subscribeErrorMessage(new DOMException("", "NotAllowedError"))).toMatch(/blockerade/);
+    expect(subscribeErrorMessage(new DOMException("", "AbortError"))).toMatch(/push-tjänst svarade inte/);
+    expect(subscribeErrorMessage(new Error("other"))).toBe("Kunde inte slå på notiser i den här webbläsaren.");
   });
 });

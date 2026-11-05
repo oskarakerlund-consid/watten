@@ -1,9 +1,18 @@
 import type { LocalDate } from "./types";
 
 export const MINUTE_MS = 60_000;
+/** The length of a price interval since 2025-10-01, and the step at which price alerts are checked. */
+export const QUARTER_HOUR_MS = 15 * MINUTE_MS;
 export const HOUR_MS = 60 * MINUTE_MS;
 
-const TIME_ZONE = "Europe/Stockholm";
+/** Swedish local time. The frontend formats times in it too. */
+export const TIME_ZONE = "Europe/Stockholm";
+
+/** Zero-pads to two digits, e.g. `7` → `07`. */
+export const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** A local date as `YYYY-MM-DD`. */
+export const formatLocalDate = ({ year, month, day }: LocalDate) => `${year}-${pad2(month)}-${pad2(day)}`;
 
 const partsFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: TIME_ZONE,
@@ -28,6 +37,8 @@ function localParts(instant: number): Record<string, number> {
 export function stockholmOffset(instant: number): number {
   const p = localParts(instant);
   const localAsUtc = Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!, p.second!);
+  // The formatter has no milliseconds, so `localAsUtc` has none either: drop them from `instant` too, or the
+  // offset would be off by up to 999 ms.
   return localAsUtc - Math.floor(instant / 1000) * 1000;
 }
 
@@ -41,10 +52,10 @@ export function stockholmDate(instant: number): LocalDate {
 export function toStockholmIso(instant: number): string {
   const p = localParts(instant);
   const offsetMinutes = stockholmOffset(instant) / MINUTE_MS;
-  const pad = (n: number) => String(n).padStart(2, "0");
   const sign = offsetMinutes >= 0 ? "+" : "-";
-  const offset = `${sign}${pad(Math.floor(Math.abs(offsetMinutes) / 60))}:${pad(Math.abs(offsetMinutes) % 60)}`;
-  return `${p.year}-${pad(p.month!)}-${pad(p.day!)}T${pad(p.hour!)}:${pad(p.minute!)}:${pad(p.second!)}${offset}`;
+  const offset = `${sign}${pad2(Math.floor(Math.abs(offsetMinutes) / 60))}:${pad2(Math.abs(offsetMinutes) % 60)}`;
+  const date = formatLocalDate({ year: p.year!, month: p.month!, day: p.day! });
+  return `${date}T${pad2(p.hour!)}:${pad2(p.minute!)}:${pad2(p.second!)}${offset}`;
 }
 
 /** Adds `days` calendar days to a local date. */
@@ -75,5 +86,5 @@ export function stockholmTimeOfDay(instant: number): { hour: number; minute: num
 /** Swedish local clock time at `instant` as `HH:MM`. */
 export function stockholmClock(instant: number): string {
   const { hour, minute } = stockholmTimeOfDay(instant);
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return `${pad2(hour)}:${pad2(minute)}`;
 }

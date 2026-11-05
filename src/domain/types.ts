@@ -10,6 +10,12 @@ export interface PriceInterval {
   sekPerKwh: number;
 }
 
+/** A browser's push subscription: where to send a push, and the keys to encrypt it with (unpadded base64url). */
+export interface PushTarget {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
 /** A calendar date in Swedish local time. `month` is 1–12. */
 export interface LocalDate {
   year: number;

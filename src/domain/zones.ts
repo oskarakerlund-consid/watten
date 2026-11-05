@@ -1,3 +1,4 @@
+import type { Position } from "./position";
 import type { Zone } from "./types";
 
 export interface ZoneInfo {
@@ -15,3 +16,10 @@ export const ZONE_INFO: Record<Zone, ZoneInfo> = {
   SE3: { name: "Mellansverige", city: "Stockholm", lat: 59.33, lon: 18.07 },
   SE4: { name: "Södra Sverige", city: "Malmö", lat: 55.61, lon: 13.0 },
 };
+
+/** The position a thunder forecast is for: the user's own, or the zone's representative city without one. */
+export function thunderPosition(zone: Zone, position: Position | null): Position {
+  if (position) return position;
+  const { lat, lon } = ZONE_INFO[zone];
+  return { lat, lon };
+}

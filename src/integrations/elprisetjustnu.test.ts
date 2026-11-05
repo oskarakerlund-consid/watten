@@ -28,6 +28,19 @@ describe("dayPricesUrl", () => {
 });
 
 describe("fetchDayPrices", () => {
+  it("aborts a request that takes too long", async () => {
+    let signal: AbortSignal | null | undefined;
+    await fetchDayPrices(
+      async (_url, init) => {
+        signal = init?.signal;
+        return new Response(JSON.stringify(normalDay));
+      },
+      "SE3",
+      { year: 2026, month: 10, day: 15 },
+    );
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("requests the URL for the zone and date", async () => {
     const requested: string[] = [];
     await fetchDayPrices(
