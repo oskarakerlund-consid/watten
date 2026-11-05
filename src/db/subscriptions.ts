@@ -1,6 +1,5 @@
 import type { Position } from "../domain/position";
-import type { Zone } from "../domain/types";
-import type { PushTarget } from "../integrations/webpush";
+import type { PushTarget, Zone } from "../domain/types";
 
 export interface StoredSubscription extends PushTarget {
   zone: Zone;

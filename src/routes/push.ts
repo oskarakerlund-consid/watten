@@ -5,6 +5,7 @@ import { parsePushConfig } from "../config";
 import { deleteSubscription, saveSubscription } from "../db/subscriptions";
 import { isPushServiceEndpoint, sendPush } from "../integrations/webpush";
 import { MAX_SUBSCRIPTIONS } from "../limits";
+import type { SubscribeRequest } from "./contract";
 import type { AppEnv } from "./types";
 import { latSchema, lonSchema, validJson, zoneSchema } from "./validation";
 
@@ -19,7 +20,7 @@ const subscribeSchema = z.object({
   subscription: z.object({ endpoint: endpointSchema, keys: keysSchema }),
   zone: zoneSchema,
   position: z.object({ lat: latSchema(z.number()), lon: lonSchema(z.number()) }).nullable(),
-});
+}) satisfies z.ZodType<SubscribeRequest, SubscribeRequest>;
 
 const unsubscribeSchema = z.object({ endpoint: endpointSchema });
 

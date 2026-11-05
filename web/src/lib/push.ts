@@ -1,4 +1,4 @@
-import { fetchPushKey, removeSubscription, saveSubscription, type SubscriptionRequest } from "./api";
+import { fetchPushKey, removeSubscription, saveSubscription, type SubscribeRequest } from "./api";
 import type { Position } from "./settings";
 import type { Zone } from "./zones";
 
@@ -16,7 +16,7 @@ export function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
 }
 
 /** The request body for a browser subscription, or null if the browser left out the encryption keys. */
-export function subscriptionRequest(json: PushSubscriptionJSON, zone: Zone, position: Position | null): SubscriptionRequest | null {
+export function subscriptionRequest(json: PushSubscriptionJSON, zone: Zone, position: Position | null): SubscribeRequest | null {
   const { endpoint, keys } = json;
   if (!endpoint || !keys?.p256dh || !keys.auth) return null;
   return { subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, zone, position };

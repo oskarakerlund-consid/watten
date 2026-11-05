@@ -3,7 +3,8 @@
  * too; the routes check their responses against them with `satisfies`.
  */
 import type { PriceStatus } from "../domain/classify";
-import type { Zone } from "../domain/types";
+import type { Position } from "../domain/position";
+import type { PushTarget, Zone } from "../domain/types";
 
 /** `GET /api/status` */
 export interface PriceStatusResponse extends PriceStatus {
@@ -42,4 +43,11 @@ export interface ThunderResponse {
   forecastFetched: string;
   /** True if MET could not be reached and an older forecast is used. */
   stale: boolean;
+}
+
+/** `POST /api/push/subscribe`: the subscription as from `PushSubscription.toJSON()`, with zone and position. */
+export interface SubscribeRequest {
+  subscription: PushTarget;
+  zone: Zone;
+  position: Position | null;
 }

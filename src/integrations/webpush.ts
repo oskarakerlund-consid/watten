@@ -1,11 +1,6 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
+import type { PushTarget } from "../domain/types";
 import { type HttpFetcher, upstreamTimeout } from "./http";
-
-/** Where and how to send a push: the browser's subscription. */
-export interface PushTarget {
-  endpoint: string;
-  keys: { p256dh: string; auth: string };
-}
 
 /** The VAPID key pair (base64url) and a contact for the push service (`mailto:` or `https:` URL). */
 export interface Vapid {

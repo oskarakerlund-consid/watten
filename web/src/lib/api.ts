@@ -1,8 +1,7 @@
-import type { Position } from "../../../src/domain/position";
-import type { CheapestResponse, PriceStatusResponse, ThunderResponse } from "../../../src/routes/contract";
+import type { CheapestResponse, PriceStatusResponse, SubscribeRequest, ThunderResponse } from "../../../src/routes/contract";
 import type { Zone } from "./zones";
 
-export type { CheapestResponse, PriceStatusResponse, ThunderResponse };
+export type { CheapestResponse, PriceStatusResponse, SubscribeRequest, ThunderResponse };
 
 /** Either the data or a message to show instead. */
 export type Result<T> = { ok: true; data: T } | { ok: false; message: string };
@@ -68,16 +67,9 @@ function send<T>(method: "POST" | "DELETE", path: string, body: unknown, message
   return request<T | null>(path, init, (status) => messages[status] ?? GENERIC_ERROR);
 }
 
-/** What the API stores for a push subscription. */
-export interface SubscriptionRequest {
-  subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
-  zone: Zone;
-  position: Position | null;
-}
-
 export const fetchPushKey = () => get<{ publicKey: string }>("/api/push/key", {}, { 503: "Notiser är inte tillgängliga just nu." });
 
-export const saveSubscription = (request: SubscriptionRequest) =>
+export const saveSubscription = (request: SubscribeRequest) =>
   send<{ created: boolean; confirmationSent: boolean }>("POST", "/api/push/subscribe", request, {
     400: "Webbläsarens push-tjänst stöds inte, eller så avvisade den prenumerationen. Prova en annan webbläsare.",
     409: "Tjänsten har nått max antal prenumerationer.",
