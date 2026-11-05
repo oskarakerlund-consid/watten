@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Position } from "../lib/settings";
   import type { Zone } from "../lib/zones";
+  import Dialog from "./Dialog.svelte";
   import ZonePicker from "./ZonePicker.svelte";
 
   let {
@@ -18,17 +19,9 @@
     onlocate: () => void;
     onclose: () => void;
   } = $props();
-
-  let dialog: HTMLDialogElement;
-
-  $effect(() => {
-    dialog.showModal();
-  });
 </script>
 
-<dialog bind:this={dialog} onclose={onclose} aria-labelledby="settings-title">
-  <h2 id="settings-title">Inställningar</h2>
-
+<Dialog title="Inställningar" {onclose}>
   <ZonePicker selected={zone} onchoose={onchoose} />
 
   <section>
@@ -40,7 +33,7 @@
         Ingen plats delad. Åskprognosen gäller då elområdets största stad.
       {/if}
     </p>
-    <button type="button" onclick={onlocate} disabled={locating}>
+    <button type="button" class="action" onclick={onlocate} disabled={locating}>
       {locating ? "Hämtar plats…" : position ? "Uppdatera min plats" : "Använd min plats"}
     </button>
     <p class="note">
@@ -48,25 +41,8 @@
       åskprognosen.
     </p>
   </section>
-
-  <button type="button" class="close" onclick={() => dialog.close()}>Klar</button>
-</dialog>
+</Dialog>
 
 <style>
-  dialog {
-    width: min(26rem, calc(100vw - 2rem));
-    max-height: calc(100dvh - 2rem);
-    border: none;
-    border-radius: 1rem;
-    padding: 1.25rem;
-    color: #1f1f1f;
-    background: #fff;
-  }
-  dialog::backdrop { background: rgb(0 0 0 / 0.5); }
-  h2 { margin: 0 0 1rem; }
   h3 { margin: 1.25rem 0 0.25rem; font-size: 1rem; }
-  p { margin: 0 0 0.5rem; }
-  .note { font-size: 0.8rem; color: #555; margin-top: 0.5rem; }
-  button { padding: 0.6rem 1rem; border-radius: 0.6rem; border: 1px solid #1f1f1f; background: #fff; cursor: pointer; }
-  .close { margin-top: 1rem; width: 100%; background: #1f1f1f; color: #fff; font-weight: 600; }
 </style>
