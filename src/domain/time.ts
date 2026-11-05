@@ -28,6 +28,8 @@ function localParts(instant: number): Record<string, number> {
 export function stockholmOffset(instant: number): number {
   const p = localParts(instant);
   const localAsUtc = Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!, p.second!);
+  // The formatter has no milliseconds, so `localAsUtc` has none either: drop them from `instant` too, or the
+  // offset would be off by up to 999 ms.
   return localAsUtc - Math.floor(instant / 1000) * 1000;
 }
 
