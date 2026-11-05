@@ -14,10 +14,10 @@ A single-screen web app (in Swedish) backed by a JSON API. Everything fits on on
 - **Location and zone:** on the first visit you either press *Använd min plats* (the browser asks for your position; it is never requested automatically) or pick a price zone. Your zone is guessed from the position. In the settings you can change the zone and update the position. Both are stored only in your browser (`localStorage`); the position is rounded to about 1 km. Without a position, the thunder forecast is for the zone's largest city.
 - **Push notifications:** the 🔔 button opens a form to turn Web Push on or off. Turning it on sends a confirmation notification right away. The subscription is stored with the current zone and rounded position, and updated when either changes. On iPhone and iPad, Web Push only works after the page has been added to the home screen.
 - **Alerts:** subscribers get a notification
-  - about **1 hour before an unusually cheap or expensive period** in their zone starts. "Starts" means the moment the page would change color: the level uses the coming hour, so that can be up to 45 minutes before the price itself changes. No price alerts are sent from 22:00 to 07:00 Swedish time (configurable).
-  - when **thunder is expected within 2 hours** at their position (or at the zone's largest city if they have not shared one), with the same probability threshold as the API. Thunder alerts are sent at any time of day.
+  - about **1 hour before an unusually cheap or expensive period** in their zone starts (configurable). "Starts" means the moment the page would change color: the level uses the coming hour, so that can be up to 45 minutes before the price itself changes. No price alerts are sent from 22:00 to 07:00 Swedish time (configurable).
+  - when **thunder is expected within 2 hours** (configurable) at their position (or at the zone's largest city if they have not shared one), with the same probability threshold as the API. Thunder alerts are sent at any time of day.
 
-  A subscriber gets at most one alert of each kind per period: a new price alert of the same kind needs a period at least 3 hours from the previous one, and a new thunder alert one at least 6 hours away. This stops repeats when a forecast shifts or a level flickers.
+  A subscriber gets at most one alert of each kind per period: a new price alert of the same kind needs a period at least 3 hours from the previous one, and a new thunder alert one at least 6 hours away (both configurable). This stops repeats when a forecast shifts or a level flickers.
 
 The page refreshes its data every 5 minutes and when the tab becomes visible again.
 
@@ -129,7 +129,7 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | D1: 5,000,000 rows read per day | Each ingestion run reads about 3,200 rows (stored prices plus the scan for old rows), 96 runs per day: about 300,000 rows. API calls read about 200 rows each. Each alert run (288 per day) reads the subscriptions, about 800 price rows and the cached forecasts: about 250,000 rows per day. |
 | 5 Cron Triggers per account | Two triggers. |
 | 50 subrequests per invocation (alert job) | At most about 20: four D1 reads, two forecast refreshes (up to three subrequests each), three pushes, one write per push (recording the alert, or deleting an expired subscription) and one delete of old records. This does not grow with the number of subscribers, which is capped at 25. |
-| 10 ms CPU per invocation | A push send is one encryption and one signature; subscribing sends a single confirmation push. The alert job sends at most three pushes per run and leaves the rest for the next run 5 minutes later. A price period is first seen about an hour ahead, so about 11 runs (33 pushes) fit before it starts, which covers all 25 subscriptions. Measured on the deployed Worker: at most 5 ms per invocation. Workers Logs is enabled (`observability` in `wrangler.jsonc`), so CPU time per invocation can be checked under the Worker's *Logs* tab in the dashboard. |
+| 10 ms CPU per invocation | A push send is one encryption and one signature; subscribing sends a single confirmation push. The alert job sends at most three pushes per run and leaves the rest for the next run 5 minutes later. A price period is first seen at least an hour ahead (`PRICE_ALERT_LEAD_MINUTES`), so at least 11 runs (33 pushes) fit before it starts, which covers all 25 subscriptions. Measured on the deployed Worker: at most 5 ms per invocation. Workers Logs is enabled (`observability` in `wrangler.jsonc`), so CPU time per invocation can be checked under the Worker's *Logs* tab in the dashboard. |
 | Workers Logs: 200,000 events per day, kept 3 days | One event per API call and cron run (96 per day), plus `console` output. |
 | 100,000 Worker requests per day | Static assets (the app itself) are free and unlimited; only `/api/*` counts. The page makes three API calls per refresh, every 5 minutes while open, and responses may be cached by the browser for 60 seconds. |
 
@@ -164,6 +164,10 @@ Tunable values are Worker vars in `wrangler.jsonc`. They are validated in `src/c
 | `THUNDER_PROBABILITY_PERCENT` | `20` | Probability of thunder (%) from which an hour counts as having expected thunder. |
 | `PRICE_ALERT_QUIET_FROM_HOUR` | `22` | No price alerts from this hour (0–23, Swedish time)… |
 | `PRICE_ALERT_QUIET_TO_HOUR` | `7` | …until this hour. The quiet time may span midnight; equal hours mean no quiet time. Thunder alerts are always sent. |
+| `PRICE_ALERT_LEAD_MINUTES` | `60` | How long before an unusually cheap or expensive period its alert is sent (60–240). At least an hour, so that every subscriber is reached before the period starts (see [Free-tier limits](#free-tier-limits)). |
+| `THUNDER_ALERT_LEAD_HOURS` | `2` | A thunder alert is sent when thunder is expected within this many hours (1–12). |
+| `PRICE_ALERT_COOLDOWN_HOURS` | `3` | A new price alert of the same kind needs a period starting at least this many hours from the previous one (1–12). |
+| `THUNDER_ALERT_COOLDOWN_HOURS` | `6` | The same for thunder alerts (1–12). |
 | `MET_USER_AGENT` | – (required) | Identifies the app to MET Norway, as their terms require. If you deploy your own copy, change it to your own app name and contact URL or e-mail. |
 | `VAPID_PUBLIC_KEY` | – | VAPID public key (base64url) for Web Push. Not a secret. Generate the pair with `node scripts/vapid-keys.mjs`. |
 | `VAPID_SUBJECT` | repo URL | Contact for push services, a `mailto:` or `https://` URL. |

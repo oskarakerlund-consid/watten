@@ -3,7 +3,7 @@ import { loadForecasts } from "../db/forecastCache";
 import { deleteSentBefore, loadSentAlerts, recordSent } from "../db/notifications";
 import { loadIntervals } from "../db/prices";
 import { deleteSubscription, loadSubscriptions, type StoredSubscription } from "../db/subscriptions";
-import { type Alert, alreadySent, duePriceAlert, dueThunderAlert, PRICE_LEAD_MS, THUNDER_LEAD_HOURS } from "../domain/alerts";
+import { type Alert, alreadySent, duePriceAlert, dueThunderAlert } from "../domain/alerts";
 import { HOUR_MS, MINUTE_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
 import { ZONE_INFO } from "../domain/zones";
@@ -13,7 +13,7 @@ import { getThunderForecast } from "../services/thunderForecast";
 
 /**
  * Each push costs a few ms of CPU, and a Free-plan invocation may use 10 ms. Alerts left over are sent on the next
- * run, 5 minutes later. A price period is first seen about an hour ahead, so about 11 runs (33 pushes) fit before
+ * run, 5 minutes later. A price period is first seen at least an hour ahead (`PRICE_ALERT_LEAD_MINUTES`), so at least 11 runs (33 pushes) fit before
  * it starts, which covers MAX_SUBSCRIPTIONS (25).
  */
 export const MAX_PUSHES_PER_RUN = 3;
@@ -24,9 +24,10 @@ export const MAX_PUSHES_PER_RUN = 3;
  */
 export const MAX_FORECAST_REFRESHES_PER_RUN = 2;
 
-/** How far back stored alerts are read: longer than any cooldown, and covers thunder that has already started. */
-const SENT_LOOKBACK_MS = 12 * HOUR_MS;
-/** Records of alerts for periods older than this are deleted. */
+/**
+ * Records of alerts for periods older than this are deleted. All kept records are read for deduplication: that
+ * covers the longest cooldown (12 hours, see `src/config.ts`) plus thunder that started up to an hour ago.
+ */
 const SENT_RETENTION_MS = 24 * HOUR_MS;
 
 export interface AlertRunResult {
@@ -48,8 +49,8 @@ function thunderPosition(subscription: StoredSubscription): { lat: number; lon: 
 
 const positionKey = ({ lat, lon }: { lat: number; lon: number }) => `${lat},${lon}`;
 
-function pushOptions(alert: Alert, now: number): PushOptions {
-  if (alert.kind === "thunder") return { ttlSeconds: THUNDER_LEAD_HOURS * 3600, urgency: "high" };
+function pushOptions(alert: Alert, now: number, config: Config): PushOptions {
+  if (alert.kind === "thunder") return { ttlSeconds: config.thunderAlertLeadHours * 3600, urgency: "high" };
   // A price alert is useless once the period has started.
   return { ttlSeconds: Math.max(60, Math.round((alert.start - now) / 1000)) };
 }
@@ -72,7 +73,7 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
     // The trailing window of the earliest quarter-hour, which starts up to 15 minutes before `now`.
     now - config.averageWindowHours * HOUR_MS - 15 * MINUTE_MS,
     // The hour after the latest quarter-hour (at the lead time), plus one quarter-hour of margin.
-    now + PRICE_LEAD_MS + HOUR_MS + 15 * MINUTE_MS,
+    now + config.priceAlertLeadMs + HOUR_MS + 15 * MINUTE_MS,
   );
   const priceAlerts = new Map<Zone, Alert | null>();
   for (const zone of new Set(subscriptions.map((s) => s.zone))) {
@@ -97,17 +98,17 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
         console.error("Thunder forecast unavailable for alerts", error);
       }
     }
-    thunderAlerts.set(key, hours ? dueThunderAlert(hours, now, config.thunderProbabilityPercent) : null);
+    thunderAlerts.set(key, hours ? dueThunderAlert(hours, now, config) : null);
   }
 
-  const sentBefore = await loadSentAlerts(db, now - SENT_LOOKBACK_MS);
+  const sentBefore = await loadSentAlerts(db, now - SENT_RETENTION_MS);
   let pushes = 0;
 
   for (const subscription of subscriptions) {
     const sent = sentBefore.get(subscription.endpoint) ?? [];
     // Thunder first: it matters more if the push budget runs out.
     const due = [thunderAlerts.get(positionKey(thunderPosition(subscription))), priceAlerts.get(subscription.zone)].filter(
-      (alert): alert is Alert => alert != null && !alreadySent(alert, sent),
+      (alert): alert is Alert => alert != null && !alreadySent(alert, sent, config.alertCooldownMs),
     );
 
     for (const alert of due) {
@@ -118,7 +119,7 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
       pushes++;
       let outcome;
       try {
-        outcome = await sendPush(fetcher, vapid, subscription, { title: alert.title, body: alert.body }, pushOptions(alert, now));
+        outcome = await sendPush(fetcher, vapid, subscription, { title: alert.title, body: alert.body }, pushOptions(alert, now, config));
       } catch (error) {
         console.error("Alert push failed", error);
         result.failed++;

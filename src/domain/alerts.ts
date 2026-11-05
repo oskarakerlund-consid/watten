@@ -1,17 +1,7 @@
 import { type ClassificationSettings, classifyPrice } from "./classify";
 import { assessThunder, type ThunderHour } from "./thunder";
-import { HOUR_MS, MINUTE_MS, stockholmClock, stockholmTimeOfDay } from "./time";
+import { MINUTE_MS, stockholmClock, stockholmTimeOfDay } from "./time";
 import type { PriceInterval, Zone } from "./types";
-
-/** A price alert is sent this long before an unusually cheap or expensive period starts. */
-export const PRICE_LEAD_MS = HOUR_MS;
-/** A thunder alert is sent when thunder is expected within this many hours. */
-export const THUNDER_LEAD_HOURS = 2;
-/**
- * A subscriber gets at most one alert of each kind for periods starting within this long of each other.
- * It stops repeats when a forecast shifts or a price level flickers between cheap and normal.
- */
-export const ALERT_COOLDOWN_MS: Record<AlertKind, number> = { cheap: 3 * HOUR_MS, expensive: 3 * HOUR_MS, thunder: 6 * HOUR_MS };
 
 const STEP_MS = 15 * MINUTE_MS;
 
@@ -28,6 +18,8 @@ export interface Alert {
 const formatSek = (value: number) => value.toFixed(2).replace(".", ",");
 
 export interface PriceAlertSettings extends ClassificationSettings {
+  /** A price alert is sent this long before an unusually cheap or expensive period starts. */
+  priceAlertLeadMs: number;
   /** No price alerts from this hour (Swedish time)... */
   priceAlertQuietFromHour: number;
   /** ...until this hour. Equal hours mean no quiet time. Thunder alerts are always sent. */
@@ -58,7 +50,7 @@ export function duePriceAlert(
   const firstStep = Math.floor(now / STEP_MS) * STEP_MS + STEP_MS;
   let previous = classifyPrice(intervals, firstStep - STEP_MS, settings)?.level ?? null;
 
-  for (let start = firstStep; start <= now + PRICE_LEAD_MS; start += STEP_MS) {
+  for (let start = firstStep; start <= now + settings.priceAlertLeadMs; start += STEP_MS) {
     const status = classifyPrice(intervals, start, settings);
     const level = status?.level ?? null;
     // An unknown previous level (missing prices) is not a change: the period may already have been going on.
@@ -77,9 +69,16 @@ export function duePriceAlert(
   return null;
 }
 
+export interface ThunderAlertSettings {
+  /** Probability of thunder (%) from which an hour counts as having thunder. */
+  thunderProbabilityPercent: number;
+  /** A thunder alert is sent when thunder is expected within this many hours. */
+  thunderAlertLeadHours: number;
+}
+
 /** The thunder alert due at `now` for a position's forecast, if thunder is expected within the lead time. */
-export function dueThunderAlert(hours: readonly ThunderHour[], now: number, thresholdPercent: number): Alert | null {
-  const assessment = assessThunder(hours, now, THUNDER_LEAD_HOURS, thresholdPercent);
+export function dueThunderAlert(hours: readonly ThunderHour[], now: number, settings: ThunderAlertSettings): Alert | null {
+  const assessment = assessThunder(hours, now, settings.thunderAlertLeadHours, settings.thunderProbabilityPercent);
   if (!assessment?.expected || assessment.start === null) return null;
   const when = assessment.start <= now ? "nu" : `från ca ${stockholmClock(assessment.start)}`;
   return {
@@ -96,8 +95,11 @@ export interface SentAlert {
   start: number;
 }
 
-/** True if a subscriber already got an alert of the same kind for a period close to this one. */
-export function alreadySent(alert: Alert, sent: readonly SentAlert[]): boolean {
-  const cooldown = ALERT_COOLDOWN_MS[alert.kind];
+/**
+ * True if a subscriber already got an alert of the same kind for a period starting within the kind's cooldown of
+ * this one. It stops repeats when a forecast shifts or a price level flickers between cheap and normal.
+ */
+export function alreadySent(alert: Alert, sent: readonly SentAlert[], cooldownMs: Record<AlertKind, number>): boolean {
+  const cooldown = cooldownMs[alert.kind];
   return sent.some((s) => s.kind === alert.kind && Math.abs(s.start - alert.start) < cooldown);
 }

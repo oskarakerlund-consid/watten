@@ -1,4 +1,7 @@
 import { z } from "zod";
+import type { AlertKind } from "./domain/alerts";
+
+const HOUR_MS = 3_600_000;
 
 const configSchema = z.object({
   /** Minimum difference from the recent average, in öre/kWh, for a price to count as cheap or expensive. */
@@ -13,6 +16,17 @@ const configSchema = z.object({
   PRICE_ALERT_QUIET_FROM_HOUR: z.coerce.number().int().min(0).max(23).default(22),
   /** ...until this hour. Equal hours mean no quiet time. Thunder alerts are always sent. */
   PRICE_ALERT_QUIET_TO_HOUR: z.coerce.number().int().min(0).max(23).default(7),
+  /**
+   * Minutes before an unusually cheap or expensive period that its alert is sent. At least an hour, so the alert
+   * job (a few pushes per run) reaches every subscriber before the period starts.
+   */
+  PRICE_ALERT_LEAD_MINUTES: z.coerce.number().int().min(60).max(240).default(60),
+  /** A thunder alert is sent when thunder is expected within this many hours. */
+  THUNDER_ALERT_LEAD_HOURS: z.coerce.number().int().min(1).max(12).default(2),
+  /** At most one price alert of the same kind for periods starting within this many hours of each other. */
+  PRICE_ALERT_COOLDOWN_HOURS: z.coerce.number().int().min(1).max(12).default(3),
+  /** At most one thunder alert for periods starting within this many hours of each other. */
+  THUNDER_ALERT_COOLDOWN_HOURS: z.coerce.number().int().min(1).max(12).default(6),
   /** Identifying User-Agent required by MET Norway's terms of service. */
   MET_USER_AGENT: z.string().min(1),
 });
@@ -24,6 +38,9 @@ export interface Config {
   thunderProbabilityPercent: number;
   priceAlertQuietFromHour: number;
   priceAlertQuietToHour: number;
+  priceAlertLeadMs: number;
+  thunderAlertLeadHours: number;
+  alertCooldownMs: Record<AlertKind, number>;
   metUserAgent: string;
 }
 
@@ -36,6 +53,10 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
     THUNDER_PROBABILITY_PERCENT: env.THUNDER_PROBABILITY_PERCENT,
     PRICE_ALERT_QUIET_FROM_HOUR: env.PRICE_ALERT_QUIET_FROM_HOUR,
     PRICE_ALERT_QUIET_TO_HOUR: env.PRICE_ALERT_QUIET_TO_HOUR,
+    PRICE_ALERT_LEAD_MINUTES: env.PRICE_ALERT_LEAD_MINUTES,
+    THUNDER_ALERT_LEAD_HOURS: env.THUNDER_ALERT_LEAD_HOURS,
+    PRICE_ALERT_COOLDOWN_HOURS: env.PRICE_ALERT_COOLDOWN_HOURS,
+    THUNDER_ALERT_COOLDOWN_HOURS: env.THUNDER_ALERT_COOLDOWN_HOURS,
     MET_USER_AGENT: env.MET_USER_AGENT,
   });
   if (!result.success) throw new Error(`Invalid Worker vars in wrangler.jsonc:\n${z.prettifyError(result.error)}`);
@@ -47,6 +68,13 @@ export function parseConfig(env: Partial<Record<keyof z.input<typeof configSchem
     thunderProbabilityPercent: vars.THUNDER_PROBABILITY_PERCENT,
     priceAlertQuietFromHour: vars.PRICE_ALERT_QUIET_FROM_HOUR,
     priceAlertQuietToHour: vars.PRICE_ALERT_QUIET_TO_HOUR,
+    priceAlertLeadMs: vars.PRICE_ALERT_LEAD_MINUTES * 60_000,
+    thunderAlertLeadHours: vars.THUNDER_ALERT_LEAD_HOURS,
+    alertCooldownMs: {
+      cheap: vars.PRICE_ALERT_COOLDOWN_HOURS * HOUR_MS,
+      expensive: vars.PRICE_ALERT_COOLDOWN_HOURS * HOUR_MS,
+      thunder: vars.THUNDER_ALERT_COOLDOWN_HOURS * HOUR_MS,
+    },
     metUserAgent: vars.MET_USER_AGENT,
   };
 }

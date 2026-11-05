@@ -27,6 +27,11 @@
     // No price alerts from 22:00 to 07:00 Swedish time (equal hours: none). Thunder alerts are always sent.
     "PRICE_ALERT_QUIET_FROM_HOUR": 22,
     "PRICE_ALERT_QUIET_TO_HOUR": 7,
+    // When alerts are sent, and how far apart periods of the same kind must be to get another alert.
+    "PRICE_ALERT_LEAD_MINUTES": 60,
+    "THUNDER_ALERT_LEAD_HOURS": 2,
+    "PRICE_ALERT_COOLDOWN_HOURS": 3,
+    "THUNDER_ALERT_COOLDOWN_HOURS": 6,
     // Identifies this app to MET Norway, as their terms of service require.
     "MET_USER_AGENT": "watten/0.1 (https://github.com/oskarakerlund-consid/watten)",
     // Web Push. The public key is not a secret; the private key is set with `wrangler secret put VAPID_PRIVATE_KEY`.

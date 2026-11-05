@@ -12,6 +12,9 @@ describe("parseConfig", () => {
       thunderProbabilityPercent: 20,
       priceAlertQuietFromHour: 22,
       priceAlertQuietToHour: 7,
+      priceAlertLeadMs: 3_600_000,
+      thunderAlertLeadHours: 2,
+      alertCooldownMs: { cheap: 3 * 3_600_000, expensive: 3 * 3_600_000, thunder: 6 * 3_600_000 },
       metUserAgent: "test/1.0",
     });
   });
@@ -33,6 +36,8 @@ describe("parseConfig", () => {
     ["a non-number", { PRICE_DIFF_PERCENT: "lots" }],
     ["a thunder probability over 100 %", { THUNDER_PROBABILITY_PERCENT: 101 }],
     ["a quiet hour of 24", { PRICE_ALERT_QUIET_FROM_HOUR: 24 }],
+    ["a price alert lead under an hour", { PRICE_ALERT_LEAD_MINUTES: 30 }],
+    ["a cooldown over 12 hours", { THUNDER_ALERT_COOLDOWN_HOURS: 13 }],
   ])("rejects %s", (_name, vars) => {
     expect(() => parseConfig({ ...UA, ...vars })).toThrow();
   });

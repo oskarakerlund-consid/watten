@@ -9,7 +9,10 @@ const SETTINGS = {
   averageWindowHours: 48,
   priceAlertQuietFromHour: 22,
   priceAlertQuietToHour: 7,
+  priceAlertLeadMs: HOUR_MS,
 };
+const THUNDER = { thunderProbabilityPercent: 20, thunderAlertLeadHours: 2 };
+const COOLDOWN = { cheap: 3 * HOUR_MS, expensive: 3 * HOUR_MS, thunder: 6 * HOUR_MS };
 const QUARTER = 15 * MINUTE_MS;
 
 /** Quarter-hour intervals from `start`, one price per hour. */
@@ -48,6 +51,11 @@ describe("duePriceAlert", () => {
 
   it("does not alert more than an hour ahead", () => {
     expect(duePriceAlert("SE3", pricesJumpingAt(JUMP_WINTER, 3), JUMP_WINTER - 106 * MINUTE_MS, SETTINGS)).toBeNull();
+  });
+
+  it("alerts earlier with a longer lead time", () => {
+    const settings = { ...SETTINGS, priceAlertLeadMs: 2 * HOUR_MS };
+    expect(duePriceAlert("SE3", pricesJumpingAt(JUMP_WINTER, 3), JUMP_WINTER - 106 * MINUTE_MS, settings)).toMatchObject({ kind: "expensive" });
   });
 
   it("does not alert for a period that has already started", () => {
@@ -114,7 +122,7 @@ describe("dueThunderAlert", () => {
     probabilities.map((probability, h) => ({ start: Date.UTC(2026, 6, 15, 12) + h * HOUR_MS, probability }));
 
   it("alerts when thunder is expected within two hours", () => {
-    expect(dueThunderAlert(forecast([0, 0, 35, 0]), NOW, 20)).toEqual({
+    expect(dueThunderAlert(forecast([0, 0, 35, 0]), NOW, THUNDER)).toEqual({
       kind: "thunder",
       start: Date.UTC(2026, 6, 15, 14),
       title: "Åska väntas från ca 16:00",
@@ -123,16 +131,17 @@ describe("dueThunderAlert", () => {
   });
 
   it("says now when the thunder hour has started", () => {
-    expect(dueThunderAlert(forecast([22.6, 0, 0]), NOW, 20)).toMatchObject({ title: "Åska väntas nu", body: expect.stringContaining("23 %") });
+    expect(dueThunderAlert(forecast([22.6, 0, 0]), NOW, THUNDER)).toMatchObject({ title: "Åska väntas nu", body: expect.stringContaining("23 %") });
   });
 
   it("does not alert for thunder later than two hours ahead", () => {
-    expect(dueThunderAlert(forecast([0, 0, 0, 80]), NOW, 20)).toBeNull();
+    expect(dueThunderAlert(forecast([0, 0, 0, 80]), NOW, THUNDER)).toBeNull();
+    expect(dueThunderAlert(forecast([0, 0, 0, 80, 0]), NOW, { ...THUNDER, thunderAlertLeadHours: 4 })).not.toBeNull();
   });
 
   it("does not alert below the threshold or without a forecast", () => {
-    expect(dueThunderAlert(forecast([10, 15, 19, 0]), NOW, 20)).toBeNull();
-    expect(dueThunderAlert([], NOW, 20)).toBeNull();
+    expect(dueThunderAlert(forecast([10, 15, 19, 0]), NOW, THUNDER)).toBeNull();
+    expect(dueThunderAlert([], NOW, THUNDER)).toBeNull();
   });
 });
 
@@ -140,12 +149,12 @@ describe("alreadySent", () => {
   const alert = { kind: "expensive" as const, start: JUMP_WINTER, title: "", body: "" };
 
   it("matches the same kind within the cooldown", () => {
-    expect(alreadySent(alert, [{ kind: "expensive", start: JUMP_WINTER }])).toBe(true);
-    expect(alreadySent(alert, [{ kind: "expensive", start: JUMP_WINTER - 2 * HOUR_MS }])).toBe(true);
+    expect(alreadySent(alert, [{ kind: "expensive", start: JUMP_WINTER }], COOLDOWN)).toBe(true);
+    expect(alreadySent(alert, [{ kind: "expensive", start: JUMP_WINTER - 2 * HOUR_MS }], COOLDOWN)).toBe(true);
   });
 
   it("ignores other kinds and alerts outside the cooldown", () => {
-    expect(alreadySent(alert, [{ kind: "cheap", start: JUMP_WINTER }])).toBe(false);
-    expect(alreadySent(alert, [{ kind: "expensive", start: JUMP_WINTER - 3 * HOUR_MS }])).toBe(false);
+    expect(alreadySent(alert, [{ kind: "cheap", start: JUMP_WINTER }], COOLDOWN)).toBe(false);
+    expect(alreadySent(alert, [{ kind: "expensive", start: JUMP_WINTER - 3 * HOUR_MS }], COOLDOWN)).toBe(false);
   });
 });
