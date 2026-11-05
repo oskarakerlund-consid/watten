@@ -39,13 +39,13 @@ export const pushRoute = new Hono<AppEnv>()
   })
   .use(bodyLimit({ maxSize: MAX_BODY_BYTES, onError: (c) => c.json({ error: "Request body too large" }, 413) }))
   .get("/key", (c) => {
-    const config = parsePushConfig(c.env);
-    if (!config) return c.json(notConfigured, 503);
-    return c.json({ publicKey: config.vapidPublicKey });
+    const vapid = parsePushConfig(c.env);
+    if (!vapid) return c.json(notConfigured, 503);
+    return c.json({ publicKey: vapid.publicKey });
   })
   .post("/subscribe", validJson(subscribeSchema), async (c) => {
-    const config = parsePushConfig(c.env);
-    if (!config) return c.json(notConfigured, 503);
+    const vapid = parsePushConfig(c.env);
+    if (!vapid) return c.json(notConfigured, 503);
     const { subscription, zone, position } = c.req.valid("json");
     const now = c.get("now");
 
@@ -54,7 +54,6 @@ export const pushRoute = new Hono<AppEnv>()
     if (saved === "updated") return c.json({ created: false, confirmationSent: false });
 
     // A first push confirms that notifications reach the device.
-    const vapid = { publicKey: config.vapidPublicKey, privateKey: config.vapidPrivateKey, subject: config.vapidSubject };
     let result;
     try {
       result = await sendPush(

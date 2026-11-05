@@ -19,12 +19,11 @@ export default {
       const result = await ingestPrices(env.DB, fetcher, controller.scheduledTime, historyDays);
       console.log("Price ingestion", JSON.stringify(result));
     } else if (controller.cron === ALERTS_CRON) {
-      const push = parsePushConfig(env);
-      if (!push) {
+      const vapid = parsePushConfig(env);
+      if (!vapid) {
         console.log("Alerts skipped: push is not configured");
         return;
       }
-      const vapid = { publicKey: push.vapidPublicKey, privateKey: push.vapidPrivateKey, subject: push.vapidSubject };
       const result = await sendAlerts(env.DB, fetcher, config, vapid, controller.scheduledTime);
       console.log("Alerts", JSON.stringify(result));
     } else {

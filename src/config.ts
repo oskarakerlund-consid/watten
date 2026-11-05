@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AlertKind } from "./domain/alerts";
-import { P256_PUBLIC_KEY } from "./integrations/webpush";
+import { P256_PUBLIC_KEY, type Vapid } from "./integrations/webpush";
 
 const HOUR_MS = 3_600_000;
 
@@ -89,23 +89,13 @@ const pushConfigSchema = z.object({
   VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)\S+$/, "must start with mailto: or https://"),
 });
 
-export interface PushConfig {
-  vapidPublicKey: string;
-  vapidPrivateKey: string;
-  vapidSubject: string;
-}
-
 /** Reads the Web Push settings. Returns null if they are missing or invalid, so the rest of the API still works. */
-export function parsePushConfig(env: Partial<Record<keyof z.input<typeof pushConfigSchema>, unknown>>): PushConfig | null {
+export function parsePushConfig(env: Partial<Record<keyof z.input<typeof pushConfigSchema>, unknown>>): Vapid | null {
   const result = pushConfigSchema.safeParse({
     VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: env.VAPID_SUBJECT,
   });
   if (!result.success) return null;
-  return {
-    vapidPublicKey: result.data.VAPID_PUBLIC_KEY,
-    vapidPrivateKey: result.data.VAPID_PRIVATE_KEY,
-    vapidSubject: result.data.VAPID_SUBJECT,
-  };
+  return { publicKey: result.data.VAPID_PUBLIC_KEY, privateKey: result.data.VAPID_PRIVATE_KEY, subject: result.data.VAPID_SUBJECT };
 }

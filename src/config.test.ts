@@ -52,9 +52,9 @@ describe("parsePushConfig", () => {
 
   it("reads the VAPID settings", () => {
     expect(parsePushConfig(valid)).toEqual({
-      vapidPublicKey: valid.VAPID_PUBLIC_KEY,
-      vapidPrivateKey: valid.VAPID_PRIVATE_KEY,
-      vapidSubject: "https://example.com",
+      publicKey: valid.VAPID_PUBLIC_KEY,
+      privateKey: valid.VAPID_PRIVATE_KEY,
+      subject: "https://example.com",
     });
     expect(parsePushConfig({ ...valid, VAPID_SUBJECT: "mailto:someone@example.com" })).not.toBeNull();
   });
