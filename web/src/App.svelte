@@ -42,10 +42,16 @@
     message = null;
   }
 
+  /** Sends the new zone and position to the server if notifications are on, and shows a message if that fails. */
+  async function updatePush(nextZone: Zone) {
+    const outcome = await syncPush(nextZone, position);
+    if (!outcome.ok) message = outcome.message;
+  }
+
   /** A zone picked by hand. */
   function pickZone(next: Zone) {
     chooseZone(next);
-    syncPush(next, position);
+    updatePush(next);
   }
 
   async function useMyLocation() {
@@ -58,7 +64,7 @@
     }
     if (update.zone) chooseZone(update.zone);
     else message = update.message;
-    if (zone) syncPush(zone, position);
+    if (zone) updatePush(zone);
   }
 
   /** Only the latest refresh applies its data, so a slow response for an old zone or position cannot overwrite a newer one. */

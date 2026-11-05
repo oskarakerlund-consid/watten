@@ -69,9 +69,15 @@ export async function disablePush(): Promise<PushOutcome> {
   return removed.ok ? { ok: true } : { ok: false, message: "Notiserna är avstängda här, men servern kunde inte nås." };
 }
 
-/** Updates the stored zone and position, if notifications are on. */
-export async function syncPush(zone: Zone, position: Position | null): Promise<void> {
-  if (!pushSupported()) return;
-  const subscription = await currentSubscription();
-  if (subscription) await save(subscription, zone, position);
+/** Updates the stored zone and position, if notifications are on. Never rejects. */
+export async function syncPush(zone: Zone, position: Position | null): Promise<PushOutcome> {
+  if (!pushSupported()) return { ok: true };
+  try {
+    const subscription = await currentSubscription();
+    const saved = subscription ? await save(subscription, zone, position) : ({ ok: true } as const);
+    return saved.ok ? saved : { ok: false, message: `Notiserna kunde inte uppdateras. ${saved.message}` };
+  } catch (error) {
+    console.error("Could not update the push subscription", error);
+    return { ok: false, message: "Notiserna kunde inte uppdateras." };
+  }
 }
