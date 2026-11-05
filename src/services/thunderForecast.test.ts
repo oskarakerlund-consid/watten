@@ -98,7 +98,7 @@ describe("getThunderForecast", () => {
     expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(later + 10 * 60_000);
   });
 
-  it("does not treat a database error as a MET failure", async () => {
+  it("returns the fresh forecast, not the stale one, when it cannot be cached", async () => {
     await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
     const failingWrites = new Proxy(env.DB, {
       get: (db, key) =>
@@ -111,9 +111,11 @@ describe("getThunderForecast", () => {
     });
 
     const later = NOW + 31 * 60_000;
-    await expect(
-      getThunderForecast(failingWrites, fakeMet(ok(40, later + 30 * 60_000)).fetcher, UA, LAT, LON, later),
-    ).rejects.toThrow("D1 write failed");
+    expect(await getThunderForecast(failingWrites, fakeMet(ok(40, later + 30 * 60_000)).fetcher, UA, LAT, LON, later)).toEqual({
+      hours: [{ start: NOW, probability: 40 }],
+      fetched: later,
+      stale: false,
+    });
     expect((await loadForecast(env.DB, LAT, LON))?.expires).toBe(NOW + 30 * 60_000);
   });
 
