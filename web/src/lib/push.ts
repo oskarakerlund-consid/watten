@@ -40,7 +40,7 @@ export async function enablePush(zone: Zone, position: Position | null): Promise
     return { ok: false, message: "Notiser är blockerade. Tillåt dem i webbläsarens inställningar för den här sidan." };
   }
   const key = await fetchPushKey();
-  if (!key.ok) return { ok: false, message: "Notiser är inte tillgängliga just nu." };
+  if (!key.ok) return key;
 
   let subscription: PushSubscription;
   try {

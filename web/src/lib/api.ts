@@ -81,12 +81,9 @@ export const fetchThunder = (lat: number, lon: number, hours: number) =>
     },
   );
 
-function send<T>(method: "POST" | "DELETE", path: string, body: unknown): Promise<Result<T | null>> {
+function send<T>(method: "POST" | "DELETE", path: string, body: unknown, messages: ErrorMessages): Promise<Result<T | null>> {
   const init = { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
-  return request<T | null>(path, init, (status) => {
-    if (status === 409) return "Tjänsten har nått max antal prenumerationer.";
-    return status === 503 ? "Notiser är inte tillgängliga just nu." : "Något gick fel.";
-  });
+  return request<T | null>(path, init, (status) => messages[status] ?? GENERIC_ERROR);
 }
 
 /** What the API stores for a push subscription. */
@@ -99,6 +96,12 @@ export interface SubscriptionRequest {
 export const fetchPushKey = () => get<{ publicKey: string }>("/api/push/key", {}, { 503: "Notiser är inte tillgängliga just nu." });
 
 export const saveSubscription = (request: SubscriptionRequest) =>
-  send<{ created: boolean; confirmationSent: boolean }>("POST", "/api/push/subscribe", request);
+  send<{ created: boolean; confirmationSent: boolean }>("POST", "/api/push/subscribe", request, {
+    400: "Webbläsarens push-tjänst stöds inte, eller så avvisade den prenumerationen. Prova en annan webbläsare.",
+    409: "Tjänsten har nått max antal prenumerationer.",
+    413: "Webbläsaren skickade en för stor prenumeration.",
+    503: "Notiser är inte tillgängliga just nu.",
+  });
 
-export const removeSubscription = (endpoint: string) => send<null>("DELETE", "/api/push/subscribe", { endpoint });
+export const removeSubscription = (endpoint: string) =>
+  send<null>("DELETE", "/api/push/subscribe", { endpoint }, { 400: "Webbläsarens push-tjänst stöds inte, så prenumerationen kunde inte tas bort." });
