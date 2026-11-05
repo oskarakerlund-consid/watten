@@ -64,10 +64,14 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
   const result: AlertRunResult = { subscriptions: subscriptions.length, sent: 0, gone: 0, failed: 0, deferred: 0, unrecorded: 0 };
   if (subscriptions.length === 0) return result;
 
-  // Enough prices to classify every quarter-hour up to the lead time, including the trailing average window.
+  // Enough prices to classify every quarter-hour `duePriceAlert` looks at. It classifies from the quarter-hour
+  // that has started (at most 15 minutes ago) up to the lead time, and each classification needs the trailing
+  // average window before it and one hour after it.
   const intervals = await loadIntervals(
     db,
+    // The trailing window of the earliest quarter-hour, which starts up to 15 minutes before `now`.
     now - config.averageWindowHours * HOUR_MS - 15 * MINUTE_MS,
+    // The hour after the latest quarter-hour (at the lead time), plus one quarter-hour of margin.
     now + PRICE_LEAD_MS + HOUR_MS + 15 * MINUTE_MS,
   );
   const priceAlerts = new Map<Zone, Alert | null>();
