@@ -40,7 +40,7 @@ export function isPriceQuietTime(now: number): boolean {
  * the lead time. A period starts at a quarter-hour whose level (as the API would classify it then) is cheap or
  * expensive and differs from the quarter-hour before. Since the classification looks one hour ahead, that is
  * when the page changes color, which can be up to 45 minutes before the price itself changes.
- * Returns null during quiet hours.
+ * Returns null during quiet hours, and for a period whose previous quarter-hour cannot be classified.
  */
 export function duePriceAlert(
   zone: Zone,
@@ -55,7 +55,8 @@ export function duePriceAlert(
   for (let start = firstStep; start <= now + PRICE_LEAD_MS; start += STEP_MS) {
     const status = classifyPrice(intervals, start, settings);
     const level = status?.level ?? null;
-    if (status && level !== "normal" && level !== previous) {
+    // An unknown previous level (missing prices) is not a change: the period may already have been going on.
+    if (status && previous !== null && level !== "normal" && level !== previous) {
       const kind = status.level as "cheap" | "expensive";
       const clock = stockholmClock(start);
       return {

@@ -52,6 +52,14 @@ describe("duePriceAlert", () => {
     expect(duePriceAlert("SE3", pricesJumpingAt(JUMP_WINTER, 1.1), JUMP_WINTER - 30 * MINUTE_MS, SETTINGS)).toBeNull();
   });
 
+  it("does not alert when the level before the period is unknown", () => {
+    // At 16:00 Swedish time the alert for 16:15 is due. Without the quarter-hour 48 hours before 16:00, the level at
+    // 16:00 is unknown (its trailing average is not covered), while 16:15 can still be classified.
+    const now = JUMP_WINTER - HOUR_MS;
+    const prices = pricesJumpingAt(JUMP_WINTER, 3).filter((i) => i.start !== now - 48 * HOUR_MS);
+    expect(duePriceAlert("SE3", prices, now, SETTINGS)).toBeNull();
+  });
+
   it("does not alert without prices", () => {
     expect(duePriceAlert("SE3", [], JUMP_WINTER - 30 * MINUTE_MS, SETTINGS)).toBeNull();
   });
