@@ -10,7 +10,8 @@ import { HOUR_MS, MINUTE_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
 import type { HttpFetcher } from "../integrations/http";
 import type { Vapid } from "../integrations/webpush";
-import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN, sendAlerts } from "./sendAlerts";
+import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN } from "../limits";
+import { sendAlerts } from "./sendAlerts";
 
 // Prices jump at 17:00 Swedish winter time (16:00 UTC); the page turns red at 16:15, so the alert is due from 15:15.
 const JUMP = Date.UTC(2026, 9, 30, 16);

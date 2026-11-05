@@ -9,20 +9,8 @@ import type { Zone } from "../domain/types";
 import { ZONE_INFO } from "../domain/zones";
 import type { HttpFetcher } from "../integrations/http";
 import { type PushOptions, sendPush, type Vapid } from "../integrations/webpush";
+import { MAX_FORECAST_REFRESHES_PER_RUN, MAX_PUSHES_PER_RUN } from "../limits";
 import { getThunderForecast } from "../services/thunderForecast";
-
-/**
- * Each push costs a few ms of CPU, and a Free-plan invocation may use 10 ms. Alerts left over are sent on the next
- * run, 5 minutes later. A price period is first seen at least an hour ahead (`PRICE_ALERT_LEAD_MINUTES`), so at least 11 runs (33 pushes) fit before
- * it starts, which covers MAX_SUBSCRIPTIONS (25).
- */
-export const MAX_PUSHES_PER_RUN = 3;
-
-/**
- * Expired forecasts refreshed from MET per run, oldest first. Each refresh is up to three subrequests and a few ms
- * of CPU to parse. Other positions use their cached forecast until their turn, a few runs later.
- */
-export const MAX_FORECAST_REFRESHES_PER_RUN = 2;
 
 /**
  * Records of alerts for periods older than this are deleted. All kept records are read for deduplication: that

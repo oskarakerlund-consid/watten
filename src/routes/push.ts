@@ -4,6 +4,7 @@ import { z } from "zod";
 import { parsePushConfig } from "../config";
 import { deleteSubscription, saveSubscription } from "../db/subscriptions";
 import { isPushServiceEndpoint, sendPush } from "../integrations/webpush";
+import { MAX_SUBSCRIPTIONS } from "../limits";
 import type { AppEnv } from "./types";
 import { latSchema, lonSchema, validJson, zoneSchema } from "./validation";
 
@@ -24,12 +25,6 @@ const unsubscribeSchema = z.object({ endpoint: endpointSchema });
 
 /** A confirmation that is useless later, so push services may drop it after an hour. */
 const CONFIRMATION_TTL_SECONDS = 3600;
-
-/**
- * Total subscriptions allowed. The alert job sends a few pushes per run so it stays within the Free CPU limit,
- * and this many still get a price alert before the period starts. See README "Free-tier limits".
- */
-export const MAX_SUBSCRIPTIONS = 25;
 
 /** A subscription request is well under 1 KB; anything much larger is rejected before it is parsed. */
 const MAX_BODY_BYTES = 4 * 1024;

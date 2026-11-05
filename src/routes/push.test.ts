@@ -4,7 +4,7 @@ import { subscriptionKeys, vapidKeys } from "../../test/pushKeys";
 import { createApp } from "../app";
 import { saveSubscription } from "../db/subscriptions";
 import type { HttpFetcher } from "../integrations/http";
-import { MAX_SUBSCRIPTIONS } from "./push";
+import { MAX_SUBSCRIPTIONS } from "../limits";
 
 const NOW = Date.UTC(2026, 9, 30, 12);
 const ENDPOINT = "https://fcm.googleapis.com/fcm/send/abc123";
