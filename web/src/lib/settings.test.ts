@@ -48,6 +48,11 @@ describe("settings", () => {
     expect(loadSettings(throwingStorage)).toEqual({ zone: null, position: null });
     expect(() => saveZone(throwingStorage, "SE3")).not.toThrow();
   });
+
+  it("works without storage", () => {
+    expect(loadSettings(null)).toEqual({ zone: null, position: null });
+    expect(() => savePosition(null, { lat: 59.33, lon: 18.07 })).not.toThrow();
+  });
 });
 
 describe("roundPosition", () => {

@@ -19,17 +19,29 @@ export const roundPosition = ({ lat, lon }: Position): Position => ({
   lon: Math.round(lon * 100) / 100,
 });
 
-function read(storage: Storage, key: string): string | null {
+/**
+ * The browser's `localStorage`, or null if it is blocked. Some browsers throw already when the property is read,
+ * e.g. when the user blocks all site data.
+ */
+export function browserStorage(): Storage | null {
   try {
-    return storage.getItem(key);
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function read(storage: Storage | null, key: string): string | null {
+  try {
+    return storage?.getItem(key) ?? null;
   } catch {
     return null; // storage can be unavailable, e.g. in private browsing
   }
 }
 
-function write(storage: Storage, key: string, value: string): void {
+function write(storage: Storage | null, key: string, value: string): void {
   try {
-    storage.setItem(key, value);
+    storage?.setItem(key, value);
   } catch {
     // Settings then only last for this visit.
   }
@@ -51,15 +63,15 @@ function parsePosition(raw: string | null): Position | null {
   return null;
 }
 
-export function loadSettings(storage: Storage): Settings {
+export function loadSettings(storage: Storage | null): Settings {
   const zone = read(storage, ZONE_KEY);
   return { zone: isZone(zone) ? zone : null, position: parsePosition(read(storage, POSITION_KEY)) };
 }
 
-export function saveZone(storage: Storage, zone: Zone): void {
+export function saveZone(storage: Storage | null, zone: Zone): void {
   write(storage, ZONE_KEY, zone);
 }
 
-export function savePosition(storage: Storage, position: Position): void {
+export function savePosition(storage: Storage | null, position: Position): void {
   write(storage, POSITION_KEY, JSON.stringify(roundPosition(position)));
 }

@@ -3,7 +3,7 @@
   import { locate, toLocationUpdate } from "./lib/geolocation";
   import { trackLatest } from "./lib/latest";
   import { syncPush } from "./lib/push";
-  import { loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
+  import { browserStorage, loadSettings, savePosition, saveZone, type Position } from "./lib/settings";
   import zoneData from "./lib/zones/zones.json";
   import { ZONE_INFO, type Zone } from "./lib/zones";
   import PriceHeadline from "./components/PriceHeadline.svelte";
@@ -17,7 +17,9 @@
   const PERIOD_HOURS = 8;
   const REFRESH_MS = 5 * 60_000;
 
-  const initial = loadSettings(localStorage);
+  // Null if the browser blocks storage: settings then only last for this visit.
+  const storage = browserStorage();
+  const initial = loadSettings(storage);
   let zone = $state<Zone | null>(initial.zone);
   let position = $state<Position | null>(initial.position);
   let message = $state<string | null>(null);
@@ -36,7 +38,7 @@
 
   function chooseZone(next: Zone) {
     zone = next;
-    saveZone(localStorage, next);
+    saveZone(storage, next);
     message = null;
   }
 
@@ -52,7 +54,7 @@
     locating = false;
     if (update.position) {
       position = update.position;
-      savePosition(localStorage, update.position);
+      savePosition(storage, update.position);
     }
     if (update.zone) chooseZone(update.zone);
     else message = update.message;
