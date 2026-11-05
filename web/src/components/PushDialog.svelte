@@ -30,11 +30,17 @@
   async function toggle() {
     busy = true;
     message = null;
-    const outcome = pushState === "on" ? await disablePush() : await enablePush(zone, position);
-    // Show what the browser actually has: disabling turns notifications off here even if the server is unreachable.
-    pushState = (await currentSubscription()) ? "on" : "off";
-    busy = false;
-    if (!outcome.ok) message = outcome.message;
+    try {
+      const outcome = pushState === "on" ? await disablePush() : await enablePush(zone, position);
+      if (!outcome.ok) message = outcome.message;
+    } catch (error) {
+      console.error("Could not change notifications", error);
+      message = "Något gick fel med notiserna. Försök igen.";
+    } finally {
+      // Show what the browser actually has: disabling turns notifications off here even if the server is unreachable.
+      pushState = (await currentSubscription().catch(() => null)) ? "on" : "off";
+      busy = false;
+    }
   }
 </script>
 
