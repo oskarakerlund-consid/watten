@@ -87,7 +87,7 @@ const sentRows = async () =>
 describe("sendAlerts", () => {
   it("does nothing without subscribers", async () => {
     const push = pushService();
-    expect(await push.run()).toEqual({ subscriptions: 0, sent: 0, gone: 0, failed: 0, deferred: 0 });
+    expect(await push.run()).toEqual({ subscriptions: 0, sent: 0, gone: 0, failed: 0, deferred: 0, unrecorded: 0 });
   });
 
   it("sends a price alert once to subscribers in the zone", async () => {
@@ -152,6 +152,18 @@ describe("sendAlerts", () => {
     const db = failingDb("DELETE FROM push_subscriptions");
     expect(await sendAlerts(db, fetcher, config, vapid, NOW)).toMatchObject({ sent: 1, gone: 0, failed: 1 });
     expect(await sentRows()).toMatchObject([{ endpoint: endpoint(1), kind: "thunder" }]);
+  });
+
+  it("keeps sending when a sent alert cannot be recorded", async () => {
+    await seedExpensiveAt17("SE3");
+    await seedForecast(59.33, 18.07, Array(4).fill(0));
+    await subscribe(1, "SE3");
+    await subscribe(2, "SE3");
+
+    const { fetcher, sent } = pushService();
+    const db = failingDb("INSERT OR IGNORE INTO notifications_sent");
+    expect(await sendAlerts(db, fetcher, config, vapid, NOW)).toMatchObject({ sent: 2, unrecorded: 2 });
+    expect(sent).toEqual([endpoint(1), endpoint(2)]);
   });
 
   it("retries a failed push on the next run", async () => {

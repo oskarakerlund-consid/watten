@@ -1,6 +1,6 @@
 import type { Config } from "../config";
 import { loadForecasts } from "../db/forecastCache";
-import { deleteSentBefore, loadSentAlerts, recordSentStatement } from "../db/notifications";
+import { deleteSentBefore, loadSentAlerts, recordSent } from "../db/notifications";
 import { loadIntervals } from "../db/prices";
 import { deleteSubscription, loadSubscriptions, type StoredSubscription } from "../db/subscriptions";
 import { type Alert, alreadySent, duePriceAlert, dueThunderAlert, PRICE_LEAD_MS, THUNDER_LEAD_HOURS } from "../domain/alerts";
@@ -37,6 +37,8 @@ export interface AlertRunResult {
   failed: number;
   /** Due alerts left for the next run because of `MAX_PUSHES_PER_RUN`. */
   deferred: number;
+  /** Alerts that were sent but could not be recorded, so they will be sent again. */
+  unrecorded: number;
 }
 
 /** The position a subscriber's thunder forecast is for: their own, or the zone's representative city. */
@@ -59,7 +61,7 @@ function pushOptions(alert: Alert, now: number): PushOptions {
  */
 export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: Config, vapid: Vapid, now: number): Promise<AlertRunResult> {
   const subscriptions = await loadSubscriptions(db);
-  const result: AlertRunResult = { subscriptions: subscriptions.length, sent: 0, gone: 0, failed: 0, deferred: 0 };
+  const result: AlertRunResult = { subscriptions: subscriptions.length, sent: 0, gone: 0, failed: 0, deferred: 0, unrecorded: 0 };
   if (subscriptions.length === 0) return result;
 
   // Enough prices to classify every quarter-hour up to the lead time, including the trailing average window.
@@ -95,8 +97,6 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
   }
 
   const sentBefore = await loadSentAlerts(db, now - SENT_LOOKBACK_MS);
-  const delivered: { endpoint: string; alert: Alert }[] = [];
-  const goneEndpoints = new Set<string>();
   let pushes = 0;
 
   for (const subscription of subscriptions) {
@@ -121,11 +121,10 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
         continue;
       }
       if (outcome === "gone") {
-        // A failed delete must not stop the run: the pushes already sent still have to be recorded below.
-        // The subscription is kept, so the push service reports it gone again on a later run.
+        // A failed delete must not stop the run. The subscription is kept, so the push service reports it gone
+        // again on a later run. Deleting it also deletes the records of alerts sent to it.
         try {
           await deleteSubscription(db, subscription.endpoint);
-          goneEndpoints.add(subscription.endpoint);
           result.gone++;
         } catch (error) {
           console.error("Could not delete a gone subscription", error);
@@ -133,16 +132,18 @@ export async function sendAlerts(db: D1Database, fetcher: HttpFetcher, config: C
         }
         break;
       }
-      delivered.push({ endpoint: subscription.endpoint, alert });
       result.sent++;
+      // Recorded at once, so a failure later in the run cannot lose it. If recording fails, the alert is sent again
+      // on the next run: a repeat is better than stopping the run and leaving the other subscribers without alerts.
+      try {
+        await recordSent(db, subscription.endpoint, alert, now);
+      } catch (error) {
+        console.error("Could not record a sent alert", error);
+        result.unrecorded++;
+      }
     }
   }
 
-  // A subscription deleted above takes its records with it, so none may be inserted for it.
-  const records = delivered
-    .filter(({ endpoint }) => !goneEndpoints.has(endpoint))
-    .map(({ endpoint, alert }) => recordSentStatement(db, endpoint, alert, now));
-  if (records.length > 0) await db.batch(records);
   await deleteSentBefore(db, now - SENT_RETENTION_MS);
   return result;
 }
