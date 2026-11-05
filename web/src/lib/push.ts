@@ -34,6 +34,15 @@ async function save(subscription: PushSubscription, zone: Zone, position: Positi
   return saved.ok ? { ok: true } : saved;
 }
 
+/** A message for a failed `register()` or `subscribe()`, by the DOMException's name. */
+export function subscribeErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : null;
+  if (name === "NotAllowedError") return "Notiser är blockerade. Tillåt dem i webbläsarens inställningar för den här sidan.";
+  // E.g. the browser's push service is turned off or unreachable (Brave without Google services).
+  if (name === "AbortError") return "Webbläsarens push-tjänst svarade inte. Försök igen senare eller prova en annan webbläsare.";
+  return "Kunde inte slå på notiser i den här webbläsaren.";
+}
+
 /** Asks for permission, subscribes the browser and stores the subscription with the zone and position. */
 export async function enablePush(zone: Zone, position: Position | null): Promise<PushOutcome> {
   if ((await Notification.requestPermission()) !== "granted") {
@@ -49,8 +58,9 @@ export async function enablePush(zone: Zone, position: Position | null): Promise
     subscription =
       (await registration.pushManager.getSubscription()) ??
       (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(key.data.publicKey) }));
-  } catch {
-    return { ok: false, message: "Kunde inte slå på notiser i den här webbläsaren." };
+  } catch (error) {
+    console.error("Could not subscribe to push", error);
+    return { ok: false, message: subscribeErrorMessage(error) };
   }
 
   const saved = await save(subscription, zone, position);
