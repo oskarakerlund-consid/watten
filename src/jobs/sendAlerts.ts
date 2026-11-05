@@ -4,6 +4,7 @@ import { deleteSentBefore, loadSentAlerts, recordSent } from "../db/notification
 import { loadIntervals } from "../db/prices";
 import { deleteSubscription, loadSubscriptions, type StoredSubscription } from "../db/subscriptions";
 import { type Alert, alreadySent, duePriceAlert, dueThunderAlert } from "../domain/alerts";
+import type { Position } from "../domain/position";
 import { HOUR_MS, MINUTE_MS } from "../domain/time";
 import type { Zone } from "../domain/types";
 import { ZONE_INFO } from "../domain/zones";
@@ -31,11 +32,11 @@ export interface AlertRunResult {
 }
 
 /** The position a subscriber's thunder forecast is for: their own, or the zone's representative city. */
-function thunderPosition(subscription: StoredSubscription): { lat: number; lon: number } {
+function thunderPosition(subscription: StoredSubscription): Position {
   return subscription.position ?? ZONE_INFO[subscription.zone];
 }
 
-const positionKey = ({ lat, lon }: { lat: number; lon: number }) => `${lat},${lon}`;
+const positionKey = ({ lat, lon }: Position) => `${lat},${lon}`;
 
 function pushOptions(alert: Alert, now: number, config: Config): PushOptions {
   if (alert.kind === "thunder") return { ttlSeconds: config.thunderAlertLeadHours * 3600, urgency: "high" };

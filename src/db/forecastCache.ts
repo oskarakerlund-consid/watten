@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Position } from "../domain/position";
 import type { ThunderHour } from "../domain/thunder";
 
 export interface CachedForecast {
@@ -71,7 +72,7 @@ export async function extendForecast(db: D1Database, lat: number, lon: number, e
  */
 export async function loadForecasts(
   db: D1Database,
-  positions: readonly { lat: number; lon: number }[],
+  positions: readonly Position[],
 ): Promise<Map<string, CachedForecast>> {
   const { results } = await db
     .prepare(

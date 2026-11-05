@@ -1,3 +1,9 @@
+/** A position in degrees (WGS 84). */
+export interface Position {
+  lat: number;
+  lon: number;
+}
+
 /**
  * A bounding box around Sweden. It also includes border areas of Norway, Finland and Denmark.
  * Shared by the API's validation and the frontend, so the frontend never stores a position the API rejects.

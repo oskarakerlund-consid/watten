@@ -1,10 +1,7 @@
-import { isInSwedenBounds } from "../../../src/domain/position";
-import { isZone, type Zone } from "./zones";
+import { isInSwedenBounds, type Position } from "../../../src/domain/position";
 
-export interface Position {
-  lat: number;
-  lon: number;
-}
+export type { Position };
+import { isZone, type Zone } from "./zones";
 
 export interface Settings {
   zone: Zone | null;

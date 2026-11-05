@@ -1,10 +1,11 @@
+import type { Position } from "../domain/position";
 import type { Zone } from "../domain/types";
 import type { PushTarget } from "../integrations/webpush";
 
 export interface StoredSubscription extends PushTarget {
   zone: Zone;
   /** Rounded position, or null if the user has not shared one. */
-  position: { lat: number; lon: number } | null;
+  position: Position | null;
 }
 
 export type SaveResult = "created" | "updated" | "full";

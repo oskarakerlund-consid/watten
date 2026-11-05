@@ -1,3 +1,4 @@
+import type { Position } from "../../../src/domain/position";
 import type { Zone } from "./zones";
 
 export type PriceLevel = "cheap" | "normal" | "expensive";
@@ -96,7 +97,7 @@ function send<T>(method: "POST" | "DELETE", path: string, body: unknown, message
 export interface SubscriptionRequest {
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
   zone: Zone;
-  position: { lat: number; lon: number } | null;
+  position: Position | null;
 }
 
 export const fetchPushKey = () => get<{ publicKey: string }>("/api/push/key", {}, { 503: "Notiser är inte tillgängliga just nu." });
