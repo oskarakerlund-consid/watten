@@ -124,7 +124,7 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 
 | Limit (Workers Free) | How Watten stays inside it |
 | --- | --- |
-| 50 subrequests (fetches and D1 queries) per invocation | Price ingestion uses at most 34: one read, up to 16 fetches, up to 16 writes (one SQL statement per zone and day, with the rows passed as one JSON parameter) and one delete. |
+| 50 subrequests (fetches and D1 queries) per invocation | Price ingestion uses at most 34 in the usual case: one read, up to 16 fetches, up to 16 writes (one SQL statement per zone and day, with the rows passed as one JSON parameter) and one delete. A day that is stored but incomplete is replaced, which costs one more delete for that day; even if all 16 were incomplete the run would stay at 50. |
 | D1: 100,000 rows written per day | About 400 price rows per day (4 zones × 96 quarter-hours), plus a one-off backfill of about 1,500 rows. |
 | D1: 5,000,000 rows read per day | Each ingestion run reads about 3,200 rows (stored prices plus the scan for old rows), 96 runs per day: about 300,000 rows. API calls read about 200 rows each. Each alert run (288 per day) reads the subscriptions, about 800 price rows and the cached forecasts: about 250,000 rows per day. |
 | 5 Cron Triggers per account | Two triggers. |

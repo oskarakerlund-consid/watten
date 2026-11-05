@@ -1,4 +1,10 @@
-import { deleteIntervalsBefore, loadIntervals, type StoredInterval, upsertIntervalsStatement } from "../db/prices";
+import {
+  deleteIntervalsBefore,
+  deleteZoneIntervalsStatement,
+  loadIntervals,
+  type StoredInterval,
+  upsertIntervalsStatement,
+} from "../db/prices";
 import { averagePrice } from "../domain/prices";
 import { addDays, stockholmDate, stockholmDayBounds, stockholmStartOfDay } from "../domain/time";
 import { type LocalDate, ZONES, type Zone } from "../domain/types";
@@ -71,6 +77,13 @@ export async function ingestPrices(
       if (day.status === "not-available") {
         result.notAvailable.push(dayLabel(zoneDay));
       } else {
+        // Rows already stored for an incomplete day are replaced, not merged: if the source changed its interval
+        // boundaries, old rows would overlap the new ones and the day would never count as complete.
+        // Only such days need the extra statement; days that are not stored yet (the usual case) do not.
+        const { start, end } = stockholmDayBounds(zoneDay.date);
+        if (existing.some((i) => i.zone === zoneDay.zone && i.start >= start && i.start < end)) {
+          statements.push(deleteZoneIntervalsStatement(db, zoneDay.zone, start, end));
+        }
         statements.push(upsertIntervalsStatement(db, zoneDay.zone, day.intervals));
         result.stored.push(dayLabel(zoneDay));
       }

@@ -110,6 +110,22 @@ describe("ingestPrices", () => {
     expect(oldest?.t).toBe(stockholmDayBounds(DAYS[1]!).start);
   });
 
+  it("replaces a stored day whose rows overlap instead of merging into it", async () => {
+    await ingestPrices(env.DB, fakeApi(DAYS).fetcher, NOW, 2);
+    // A stray row that overlaps two quarter-hours makes today's coverage invalid.
+    const { start } = stockholmDayBounds(DAYS[2]!);
+    await env.DB.prepare("INSERT INTO prices (zone, start_utc, end_utc, sek_per_kwh) VALUES ('SE3', ?1, ?2, 9)")
+      .bind(start + 7 * 60_000, start + 22 * 60_000)
+      .run();
+
+    const api = fakeApi(DAYS);
+    expect((await ingestPrices(env.DB, api.fetcher, NOW, 2)).stored).toEqual(["SE3 2026-10-16"]);
+    expect(await countByZone()).toEqual(["SE1", "SE2", "SE3", "SE4"].map((zone) => ({ zone, n: 4 * 96 })));
+    // The day is complete again, so the next run fetches nothing.
+    await ingestPrices(env.DB, api.fetcher, NOW, 2);
+    expect(api.requested).toHaveLength(1);
+  });
+
   it("stores what it can and throws when some fetches fail", async () => {
     const api = fakeApi(DAYS);
     const failing: HttpFetcher = async (url) =>

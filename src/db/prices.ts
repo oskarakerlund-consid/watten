@@ -48,6 +48,11 @@ export function upsertIntervalsStatement(db: D1Database, zone: Zone, intervals: 
   return db.prepare(UPSERT_SQL).bind(zone, JSON.stringify(rows));
 }
 
+/** Statement that deletes a zone's intervals that start within `[from, to)`. Run it with `db.batch()`. */
+export function deleteZoneIntervalsStatement(db: D1Database, zone: Zone, from: number, to: number) {
+  return db.prepare("DELETE FROM prices WHERE zone = ?1 AND start_utc >= ?2 AND start_utc < ?3").bind(zone, from, to);
+}
+
 /** Deletes all intervals that start before `cutoff`. */
 export async function deleteIntervalsBefore(db: D1Database, cutoff: number): Promise<void> {
   await db.prepare("DELETE FROM prices WHERE start_utc < ?1").bind(cutoff).run();
