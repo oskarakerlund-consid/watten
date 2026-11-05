@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchStatus, removeSubscription } from "./api";
+import { fetchStatus, fetchThunder, removeSubscription } from "./api";
 
 /** Makes `fetch` answer with `respond()`. */
 const stubFetch = (respond: () => Promise<Response>) => vi.stubGlobal("fetch", vi.fn(respond));
@@ -20,6 +20,15 @@ describe("API client", () => {
 
     stubFetch(async () => new Response("<html>"));
     expect(await fetchStatus("SE3")).toMatchObject({ ok: false, message: expect.stringContaining("oväntat svar") });
+  });
+
+  it("explains errors per endpoint", async () => {
+    stubFetch(async () => Response.json({ error: "Prices for SE3 are not available yet" }, { status: 503 }));
+    expect(await fetchStatus("SE3")).toEqual({ ok: false, message: "Priserna för SE3 är inte hämtade än. Försök igen om en stund." });
+    expect(await fetchThunder(59.33, 18.07, 8)).toMatchObject({ message: expect.stringContaining("Åskprognosen kunde inte hämtas") });
+
+    stubFetch(async () => Response.json({ error: "Internal error" }, { status: 500 }));
+    expect(await fetchStatus("SE3")).toEqual({ ok: false, message: "Något gick fel. Försök igen om en stund." });
   });
 
   it("returns null for an empty response", async () => {

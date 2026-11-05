@@ -51,18 +51,35 @@ async function request<T>(url: string, init: RequestInit, errorMessage: (status:
   }
 }
 
-function get<T>(path: string, params: Record<string, string | number>): Promise<Result<T>> {
+/** Messages for the error statuses an endpoint is expected to answer; any other status gets `GENERIC_ERROR`. */
+type ErrorMessages = Partial<Record<number, string>>;
+
+const GENERIC_ERROR = "Något gick fel. Försök igen om en stund.";
+
+function get<T>(path: string, params: Record<string, string | number>, messages: ErrorMessages): Promise<Result<T>> {
   const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
-  return request<T>(`${path}?${query}`, {}, (status) => (status === 503 ? "Data saknas just nu." : "Något gick fel."));
+  return request<T>(`${path}?${query}`, {}, (status) => messages[status] ?? GENERIC_ERROR);
 }
 
-export const fetchStatus = (zone: Zone) => get<PriceStatusResponse>("/api/status", { zone });
+export const fetchStatus = (zone: Zone) =>
+  get<PriceStatusResponse>("/api/status", { zone }, { 503: `Priserna för ${zone} är inte hämtade än. Försök igen om en stund.` });
 
 export const fetchCheapest = (zone: Zone, interval: number, period: number) =>
-  get<CheapestResponse>("/api/cheapest", { zone, interval, period });
+  get<CheapestResponse>(
+    "/api/cheapest",
+    { zone, interval, period },
+    { 503: `Priserna för ${zone} de kommande ${period} timmarna är inte kända än. Försök igen om en stund.` },
+  );
 
 export const fetchThunder = (lat: number, lon: number, hours: number) =>
-  get<ThunderResponse>("/api/thunder", { lat, lon, hours });
+  get<ThunderResponse>(
+    "/api/thunder",
+    { lat, lon, hours },
+    {
+      400: "Åskprognosen finns bara för platser i Sverige. Uppdatera din plats i inställningarna.",
+      503: "Åskprognosen kunde inte hämtas just nu. Försök igen om en stund.",
+    },
+  );
 
 function send<T>(method: "POST" | "DELETE", path: string, body: unknown): Promise<Result<T | null>> {
   const init = { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
@@ -79,7 +96,7 @@ export interface SubscriptionRequest {
   position: { lat: number; lon: number } | null;
 }
 
-export const fetchPushKey = () => get<{ publicKey: string }>("/api/push/key", {});
+export const fetchPushKey = () => get<{ publicKey: string }>("/api/push/key", {}, { 503: "Notiser är inte tillgängliga just nu." });
 
 export const saveSubscription = (request: SubscriptionRequest) =>
   send<{ created: boolean; confirmationSent: boolean }>("POST", "/api/push/subscribe", request);
