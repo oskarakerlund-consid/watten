@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadForecast, saveForecast } from "../db/forecastCache";
+import { loadForecast, loadForecasts, saveForecast } from "../db/forecastCache";
 import type { HttpFetcher } from "../integrations/http";
 import { getThunderForecast } from "./thunderForecast";
 
@@ -44,6 +44,22 @@ describe("getThunderForecast", () => {
     expect(forecast).toEqual({ hours: [{ start: NOW, probability: 5 }], fetched: NOW, stale: false });
     expect(await loadForecast(env.DB, LAT, LON)).toMatchObject({ expires: NOW + 30 * 60_000, lastModified: "Fri, 16 Oct 2026 16:00:00 GMT" });
   });
+
+  it.each([["invalid JSON", "{"], ["an unexpected shape", '[{"start":"soon"}]']])(
+    "replaces a cached forecast with %s by a fresh one",
+    async (_name, hours) => {
+      await env.DB.prepare(
+        "INSERT INTO forecast_cache (lat, lon, hours, expires_utc, last_modified, fetched_utc) VALUES (?1, ?2, ?3, ?4, NULL, ?5)",
+      )
+        .bind(LAT, LON, hours, NOW + 30 * 60_000, NOW)
+        .run();
+      expect(await loadForecasts(env.DB, [{ lat: LAT, lon: LON }])).toHaveProperty("size", 0);
+
+      const forecast = await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
+      expect(forecast.hours).toEqual([{ start: NOW, probability: 5 }]);
+      expect(await loadForecasts(env.DB, [{ lat: LAT, lon: LON }])).toHaveProperty("size", 1);
+    },
+  );
 
   it("serves the cache without contacting MET until it expires", async () => {
     await getThunderForecast(env.DB, fakeMet(ok(5, NOW + 30 * 60_000)).fetcher, UA, LAT, LON, NOW);
