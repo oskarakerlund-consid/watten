@@ -2,7 +2,11 @@
 
 Watten is a small serverless service that helps you decide when to use electricity in Sweden. It shows whether the current electricity price is relatively cheap or expensive, when the cheapest upcoming hours are, and whether thunder is expected, so you can avoid using sensitive equipment or charging an EV during a thunderstorm. Users can subscribe to Web Push notifications.
 
+**Live demo:** <https://watten.watten.workers.dev/>
+
 > **Status:** early development, tech demo, not a commercial product. The overview page, the API and push notifications for price and thunder work. See [`docs/PLAN.md`](docs/PLAN.md) for the implementation plan.
+
+Watten is developed with [Claude Code](https://claude.com/claude-code) (agent-driven development) as part of the course *Next-Generation Software Development with AI* at Consid.
 
 ## How it works
 
@@ -123,6 +127,8 @@ Compared with the original polygons on a grid of about 19,400 points across Swed
 | [`globals`](https://github.com/sindresorhus/globals) | dev | Browser, service worker and Node globals for the ESLint config | MIT |
 
 ## Free-tier limits
+
+The default configuration and the limits in `src/limits.ts` (at most 25 subscriptions, three pushes and two forecast refreshes per alert run) are chosen so that Watten runs for free on Cloudflare. They are not a limit of the design: on the paid Workers plan, with its higher CPU and subrequest limits, the same app could serve more subscribers after raising these values.
 
 | Limit (Workers Free) | How Watten stays inside it |
 | --- | --- |
